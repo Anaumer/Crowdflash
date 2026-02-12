@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
+    <title>Blitzlicht Test – Crowd Flash</title>
+    <meta name="description" content="Teste dein Blitzlicht für das Crowd Flash Erlebnis." />
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script src="config.js"></script>
+</head>
+
+<body>
+    <div class="flash-overlay" id="flash-overlay"></div>
+
+    <div class="page-full" style="min-height: 100dvh;">
+        <!-- Background pulse -->
+        <div
+            style="position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; z-index: 0;">
+            <div class="pulse-ring"
+                style="width: 300px; height: 300px; background: rgba(var(--primary-rgb), 0.2); filter: blur(100px); border-radius: 50%; opacity: 0.5;">
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header
+            style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; z-index: 20; position: relative;">
+            <button class="icon-btn" onclick="window.location.href='index.html'">
+                <span class="material-symbols-outlined" style="font-size: 1.5rem;">arrow_back</span>
+            </button>
+            <div
+                style="font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-secondary); text-transform: uppercase;">
+                Systemcheck
+            </div>
+            <div style="width: 2.5rem; height: 2.5rem;"></div>
+        </header>
+
+        <!-- Main Content -->
+        <main
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; width: 100%; padding: 1.5rem; z-index: 10;">
+
+            <!-- Status Badge -->
+            <div
+                style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-bottom: 3rem; position: relative; z-index: 10;">
+                <div
+                    style="display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 1rem; border-radius: var(--radius-full); background: rgba(30,41,59,0.8); border: 1px solid rgba(71,85,105,1); backdrop-filter: blur(8px);">
+                    <span style="position: relative; display: flex; width: 0.625rem; height: 0.625rem;">
+                        <span
+                            style="position: absolute; inset: 0; border-radius: 50%; background: #34d399; opacity: 0.75; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+                        <span
+                            style="position: relative; display: inline-flex; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: #10b981;"></span>
+                    </span>
+                    <span
+                        style="font-size: 0.75rem; font-weight: 500; color: #cbd5e1; letter-spacing: 0.05em; text-transform: uppercase;">Bereit
+                        für Synchronisation</span>
+                </div>
+            </div>
+
+            <!-- Flash Test Button -->
+            <div class="circle-btn-wrapper">
+                <div class="circle-btn-ring"></div>
+                <div class="circle-btn-ring circle-btn-ring-2"></div>
+                <button class="circle-btn" id="btn-test" onmousedown="testFlash()" ontouchstart="testFlash()">
+                    <div class="hover-overlay"></div>
+                    <span class="material-symbols-outlined">flash_on</span>
+                    <span class="circle-btn-label">Blitz</span>
+                    <span class="circle-btn-sublabel">Testen</span>
+                </button>
+            </div>
+
+            <!-- Info Section -->
+            <div
+                style="margin-top: 4rem; text-align: center; max-width: 20rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                <h1 style="font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; color: white;">Lass es
+                    leuchten.</h1>
+
+                <div class="tips-card">
+                    <div class="tip-item">
+                        <span class="material-symbols-outlined">lock_open</span>
+                        <div>
+                            <p class="tip-title">Bildschirm aktiv lassen</p>
+                            <p class="tip-desc">Sperre dein Handy nicht. Der Bildschirm muss aktiv sein, damit der Blitz
+                                synchronisiert werden kann.</p>
+                        </div>
+                    </div>
+                    <div class="tip-item">
+                        <span class="material-symbols-outlined">tab</span>
+                        <div>
+                            <p class="tip-title">Tab offen lassen</p>
+                            <p class="tip-desc">Das Schließen dieses Browser-Tabs trennt dich vom Show-Controller.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="mobile-footer">
+            <div class="footer-status">
+                <div class="footer-status-item">
+                    <div class="footer-status-icon">
+                        <span class="material-symbols-outlined">wifi_tethering</span>
+                    </div>
+                    <div>
+                        <p class="footer-label">Signalstatus</p>
+                        <p class="footer-value" id="signal-status">Warte auf Signal...</p>
+                    </div>
+                </div>
+                <div class="footer-divider"></div>
+                <div style="text-align: right;">
+                    <p class="footer-label">Batterie</p>
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.25rem;"
+                        class="battery-good">
+                        <span style="font-size: 0.875rem; font-weight: 700;" id="battery-level">Optimal</span>
+                        <span class="material-symbols-outlined" style="font-size: 1rem;">battery_charging_full</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="js/torch.js"></script>
+    <script>
+        const torch = new TorchController();
+        let testCount = 0;
+
+        // Re-acquire torch permission (stream may have been lost on navigation)
+        (async () => {
+            await torch.requestPermission();
+            // Show battery
+            const level = await torch.getBatteryLevel();
+            if (level !== null) {
+                document.getElementById('battery-level').textContent = level + '%';
+            }
+        })();
+
+        async function testFlash() {
+            testCount++;
+            const btn = document.getElementById('btn-test');
+            await torch.flashOnce(300);
+
+            if (testCount >= 1) {
+                document.getElementById('signal-status').textContent = 'Blitz funktioniert!';
+                document.getElementById('signal-status').style.color = '#34d399';
+
+                // After first successful test, show continue option
+                setTimeout(() => {
+                    if (testCount >= 1) {
+                        const footer = document.querySelector('.mobile-footer');
+                        if (!document.getElementById('btn-continue')) {
+                            const continueBtn = document.createElement('button');
+                            continueBtn.id = 'btn-continue';
+                            continueBtn.className = 'btn-primary';
+                            continueBtn.style.marginTop = '1rem';
+                            continueBtn.innerHTML = '<span class="material-symbols-outlined">arrow_forward</span> Weiter zur Show';
+                            continueBtn.onclick = () => { window.location.href = 'live.html'; };
+                            footer.appendChild(continueBtn);
+                        }
+                    }
+                }, 500);
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
+    <title>Live-Sync – Crowd Flash</title>
+    <meta name="description" content="Dein Handy ist bereit für die Show." />
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script src="config.js"></script>
+    <style>
+        /* Keep screen awake styles */
+        body.flash-active {
+            background: white !important;
+        }
+
+        body.flash-active * {
+            visibility: hidden !important;
+        }
+
+        body.flash-active #flash-overlay {
+            visibility: visible !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="flash-overlay" id="flash-overlay"></div>
+
+    <div class="page-full" style="min-height: 100dvh;">
+        <!-- Ambient Background -->
+        <div class="bg-ambient">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+
+        <!-- Header -->
+        <header
+            style="position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 1.5rem;">
+            <button class="icon-btn" onclick="window.location.href='test.html'">
+                <span class="material-symbols-outlined" style="font-size: 1.5rem;">arrow_back</span>
+            </button>
+            <div
+                style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.05); backdrop-filter: blur(8px); padding: 0.375rem 1rem; border-radius: var(--radius-full); border: 1px solid var(--border);">
+                <span
+                    style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: white;">Crowd
+                    Flash</span>
+            </div>
+            <button class="icon-btn">
+                <span class="material-symbols-outlined" style="font-size: 1.5rem;">settings</span>
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <main
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 10; width: 100%; padding: 1.5rem;">
+            <!-- Ripple Animation -->
+            <div class="ripple-container" style="margin-bottom: 3rem;">
+                <div class="ripple-ring"></div>
+                <div class="ripple-ring"></div>
+                <div class="ripple-ring"></div>
+                <div class="ripple-center">
+                    <span class="material-symbols-outlined">bolt</span>
+                </div>
+                <div class="ripple-blur"></div>
+            </div>
+
+            <!-- Text -->
+            <div
+                style="text-align: center; display: flex; flex-direction: column; gap: 1rem; max-width: 20rem; margin: 0 auto;">
+                <h1
+                    style="font-size: 2.25rem; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; color: white;">
+                    Bereit für<br />die Show
+                </h1>
+                <p style="color: rgba(255,255,255,0.6); font-size: 1rem;">
+                    Stelle dein Handy laut und halte es hoch. Warte auf Signal...
+                </p>
+            </div>
+
+            <!-- Connection Badge -->
+            <div style="margin-top: 2.5rem;" id="connection-indicator">
+                <div class="connection-badge" id="badge-connecting" style="animation: pulse 2s infinite;">
+                    <span class="connection-dot">
+                        <span
+                            style="position: absolute; inset: 0; border-radius: 50%; background: #f59e0b; opacity: 0.75; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+                        <span class="connection-dot-solid" style="background: #f59e0b;"></span>
+                    </span>
+                    <span
+                        style="font-size: 0.875rem; font-weight: 500; color: #e2e8f0; letter-spacing: 0.05em;">Verbindung
+                        wird aufgebaut...</span>
+                </div>
+                <div class="connection-badge" id="badge-connected" style="display: none;">
+                    <span class="connection-dot">
+                        <span class="connection-dot-ping"></span>
+                        <span class="connection-dot-solid"></span>
+                    </span>
+                    <span style="font-size: 0.875rem; font-weight: 500; color: #e2e8f0; letter-spacing: 0.05em;">Mit
+                        Bühne verbunden</span>
+                </div>
+                <div class="connection-badge" id="badge-disconnected" style="display: none;">
+                    <span class="connection-dot">
+                        <span class="connection-dot-solid" style="background: #ef4444;"></span>
+                    </span>
+                    <span
+                        style="font-size: 0.875rem; font-weight: 500; color: #e2e8f0; letter-spacing: 0.05em;">Verbindung
+                        verloren...</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer style="position: relative; z-index: 10; width: 100%; padding: 1.5rem; padding-bottom: 2.5rem;">
+            <div class="sync-footer">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-size: 0.875rem; font-weight: 600; color: white;">Sync Probleme?</span>
+                    <span style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">In manuellen Modus wechseln</span>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="manual-toggle" />
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
+        </footer>
+    </div>
+
+    <script src="js/torch.js"></script>
+    <script src="js/client.js"></script>
+    <script>
+        const client = new CrowdflashClient();
+
+        // Request torch permission
+        (async () => {
+            await client.torch.requestPermission();
+        })();
+
+        // Connection status UI
+        client.onConnectionChange = (connected) => {
+            document.getElementById('badge-connecting').style.display = 'none';
+            if (connected) {
+                document.getElementById('badge-connected').style.display = '';
+                document.getElementById('badge-disconnected').style.display = 'none';
+            } else {
+                document.getElementById('badge-connected').style.display = 'none';
+                document.getElementById('badge-disconnected').style.display = '';
+            }
+        };
+
+        // Command feedback (optional visual)
+        client.onCommand = (cmd, data) => {
+            // Could add visual feedback here
+            console.log('Command received:', cmd, data);
+        };
+
+        // Connect
+        client.connect();
+
+        // Keep screen awake using a NoSleep-like approach
+        // (WakeLock API where available)
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    await navigator.wakeLock.request('screen');
+                    console.log('Wake lock acquired');
+                }
+            } catch (e) {
+                console.warn('Wake lock not available:', e);
+            }
+        }
+        requestWakeLock();
+
+        // Re-acquire wake lock on visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+    </script>
+</body>
+
+</html>

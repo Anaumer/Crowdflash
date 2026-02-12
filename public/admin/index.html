@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Crowd Flash Admin – Control Panel</title>
+    <meta name="description" content="Crowd Flash Admin Console – Control connected devices in real-time." />
+    <link rel="stylesheet" href="admin.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script src="../config.js"></script>
+</head>
+
+<body>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-dot"></div>
+            <h1>CROWD FLASH</h1>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a class="nav-item active" href="#">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span>Dashboard</span>
+            </a>
+            <a class="nav-item" href="#">
+                <span class="material-symbols-outlined">live_tv</span>
+                <span>Live Show</span>
+            </a>
+            <a class="nav-item" href="#">
+                <span class="material-symbols-outlined">devices</span>
+                <span>Devices</span>
+            </a>
+            <a class="nav-item" href="#">
+                <span class="material-symbols-outlined">analytics</span>
+                <span>Analytics</span>
+            </a>
+            <a class="nav-item" href="#">
+                <span class="material-symbols-outlined">settings</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar"></div>
+                <div>
+                    <div class="sidebar-user-name">Lead Admin</div>
+                    <div class="sidebar-user-role">Main Console</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ===== MAIN AREA ===== -->
+    <main class="main-area">
+
+        <!-- Left: Metrics Panel -->
+        <section class="metrics-panel">
+            <h2 class="section-title">Core Metrics</h2>
+
+            <!-- Active Users -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-label">Active Users</span>
+                    <span class="metric-badge positive" id="users-change">+0%</span>
+                </div>
+                <div class="metric-value" id="active-users">0</div>
+                <div class="sparkline-container">
+                    <svg preserveAspectRatio="none" viewBox="0 0 100 40">
+                        <path id="sparkline-path" d="M0,35 Q10,32 20,34 T40,25 T60,28 T80,15 T100,20" fill="none"
+                            stroke="#f9f906" stroke-width="2" vector-effect="non-scaling-stroke" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Stability -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-label">Stability</span>
+                    <span class="material-symbols-outlined"
+                        style="color: var(--primary); font-size: 0.875rem;">wifi</span>
+                </div>
+                <div class="metric-value" style="font-size: 1.875rem;" id="stability">0%</div>
+                <div class="stability-bars">
+                    <div class="stability-bar" id="stab-1"></div>
+                    <div class="stability-bar" id="stab-2"></div>
+                    <div class="stability-bar" id="stab-3"></div>
+                    <div class="stability-bar" id="stab-4"></div>
+                    <div class="stability-bar dim" id="stab-5"></div>
+                </div>
+            </div>
+
+            <!-- Battery -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-label">Avg Battery</span>
+                    <span class="material-symbols-outlined"
+                        style="color: var(--text-muted); font-size: 0.875rem;">battery_charging_full</span>
+                </div>
+                <div class="metric-value" style="font-size: 1.875rem;" id="avg-battery">0%</div>
+                <p style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem;">Critical threshold: 15%
+                </p>
+            </div>
+        </section>
+
+        <!-- Center: Console -->
+        <section class="console-panel">
+            <!-- Console Header -->
+            <div class="console-header">
+                <div class="console-title">
+                    <span>Main Console</span>
+                    <div class="console-divider"></div>
+                    <div class="console-status">
+                        <span class="status-dot" id="system-dot"></span>
+                        <span class="status-text" id="system-status">Venue System: ONLINE</span>
+                    </div>
+                </div>
+                <button class="btn-emergency" id="btn-emergency">EMERGENCY STOP</button>
+            </div>
+
+            <!-- Master Trigger -->
+            <div class="trigger-area">
+                <div class="trigger-wrapper">
+                    <div class="trigger-ring-outer"></div>
+                    <div class="trigger-ring-inner"></div>
+                    <button class="trigger-btn" id="master-trigger">
+                        <div class="trigger-overlay"></div>
+                        <span class="material-symbols-outlined">bolt</span>
+                        <div class="trigger-label">MASTER<br />TRIGGER</div>
+                    </button>
+                </div>
+                <p class="trigger-hint">Holding triggers global synchronized flash</p>
+            </div>
+
+            <!-- Controls Bar -->
+            <div class="controls-bar">
+                <div class="controls-grid">
+
+                    <!-- BPM Sync -->
+                    <div class="control-group">
+                        <label class="control-label">BPM Sync</label>
+                        <div class="bpm-control">
+                            <div class="bpm-input-wrapper">
+                                <button class="bpm-btn" id="bpm-minus">
+                                    <span class="material-symbols-outlined" style="font-size: 0.875rem;">remove</span>
+                                </button>
+                                <input class="bpm-input" type="number" value="128" id="bpm-value" />
+                                <button class="bpm-btn" id="bpm-plus">
+                                    <span class="material-symbols-outlined" style="font-size: 0.875rem;">add</span>
+                                </button>
+                            </div>
+                            <button class="btn-tap" id="btn-tap">Tap</button>
+                        </div>
+                    </div>
+
+                    <!-- Strobe Rate -->
+                    <div class="control-group">
+                        <div class="strobe-header">
+                            <label class="control-label">Strobe Rate</label>
+                            <span class="strobe-value" id="strobe-display">0 Hz</span>
+                        </div>
+                        <div style="position: relative; padding: 0.5rem 0;">
+                            <input class="range-slider" type="range" min="0" max="100" value="0" id="strobe-slider" />
+                            <div class="range-labels">
+                                <span>Steady</span>
+                                <span>Fast</span>
+                                <span>Insane</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flash Pattern -->
+                    <div class="control-group">
+                        <label class="control-label">Flash Pattern</label>
+                        <div class="pattern-grid">
+                            <button class="pattern-btn" data-pattern="SHORT">Short</button>
+                            <button class="pattern-btn" data-pattern="PULSE">Pulse</button>
+                            <button class="pattern-btn" data-pattern="LONG">Long</button>
+                            <button class="pattern-btn" data-pattern="WAVE">Wave</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: Venue & Log -->
+        <section class="right-panel">
+            <!-- Venue Distribution -->
+            <div class="venue-section">
+                <h2 class="section-title" style="margin-bottom: 1rem;">Venue Distribution</h2>
+                <div class="venue-map" id="venue-map">
+                    <div class="venue-grid"></div>
+                    <!-- Dots will be generated dynamically -->
+                    <div class="venue-label">Floor 1 • Main Stage</div>
+                </div>
+            </div>
+
+            <!-- Live Event Log -->
+            <div class="log-section">
+                <h2 class="section-title" style="margin-bottom: 1rem;">Live Event Log</h2>
+                <div class="log-container" id="event-log">
+                    <!-- Log entries will be added dynamically -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="admin.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
+  <title>Crowd Flash – Synchronisiere dein Licht</title>
+  <meta name="description"
+    content="Werde Teil der Show. Synchronisiere den Blitz deines Handys mit dem Beat des Live-Konzerts." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+  <script src="config.js"></script>
+</head>
+
+<body>
+  <div class="flash-overlay" id="flash-overlay"></div>
+
+  <div class="bg-glow"></div>
+
+  <div class="page" style="justify-content: space-between; padding-top: 2rem; padding-bottom: 2rem;">
+    <!-- Header -->
+    <div class="header">
+      <span class="material-symbols-outlined" style="color: rgba(255,255,255,0.6);">help</span>
+      <span class="header-badge">v2.4 Live</span>
+      <span class="material-symbols-outlined" style="color: rgba(255,255,255,0.6);">menu</span>
+    </div>
+
+    <!-- Center Content -->
+    <div
+      style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; width: 100%; text-align: center; gap: 2rem;">
+      <!-- Flash Icon -->
+      <div class="flash-icon-wrapper">
+        <div class="flash-icon-glow"></div>
+        <div class="flash-icon-circle">
+          <span class="material-symbols-outlined">flashlight_on</span>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <h1
+          style="font-size: 2.25rem; font-weight: 700; letter-spacing: -0.025em; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+          Crowd Flash
+        </h1>
+        <p
+          style="color: var(--primary); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.875rem;">
+          SYNCHRONISIERE DEIN LICHT
+        </p>
+      </div>
+
+      <!-- Description -->
+      <div style="max-width: 320px;">
+        <p style="color: #cbd5e1; font-size: 1.125rem; line-height: 1.6;">
+          Werde Teil der Show. Synchronisiere den Blitz deines Handys mit dem Beat des Live-Konzerts.
+        </p>
+      </div>
+    </div>
+
+    <!-- Bottom Section -->
+    <div style="width: 100%; display: flex; flex-direction: column; gap: 1.5rem; padding-bottom: 1.5rem;">
+      <!-- Permission Info -->
+      <div class="info-card">
+        <span class="material-symbols-outlined">verified_user</span>
+        <div style="text-align: left;">
+          <p class="info-card-title">Berechtigung erforderlich</p>
+          <p class="info-card-desc">Wir benötigen Zugriff auf dein Blitzlicht, um am Erlebnis teilzunehmen. Es werden
+            keine Fotos oder Videos aufgenommen.</p>
+        </div>
+      </div>
+
+      <!-- CTA Button -->
+      <button class="btn-primary" id="btn-start" onclick="startExperience()">
+        <span class="btn-shine"></span>
+        <span class="material-symbols-outlined">bolt</span>
+        JETZT STARTEN
+      </button>
+
+      <!-- Powered by -->
+      <div class="powered-by">
+        UNTERSTÜTZT DURCH SoundSync Tech
+      </div>
+    </div>
+  </div>
+
+  <script src="js/torch.js"></script>
+  <script>
+    const torch = new TorchController();
+
+    async function startExperience() {
+      const btn = document.getElementById('btn-start');
+      btn.textContent = 'Berechtigung wird angefragt...';
+      btn.style.opacity = '0.7';
+      btn.disabled = true;
+
+      const granted = await torch.requestPermission();
+
+      if (granted) {
+        // Brief test flash to confirm
+        await torch.flashOnce(200);
+        // Navigate to test page
+        window.location.href = 'test.html';
+      } else {
+        btn.innerHTML = '<span class="material-symbols-outlined">error</span> Berechtigung verweigert';
+        btn.style.background = '#ef4444';
+        setTimeout(() => {
+          btn.innerHTML = '<span class="btn-shine"></span><span class="material-symbols-outlined">bolt</span> JETZT STARTEN';
+          btn.style.background = '';
+          btn.style.opacity = '';
+          btn.disabled = false;
+        }, 3000);
+      }
+    }
+  </script>
+</body>
+
+</html>
