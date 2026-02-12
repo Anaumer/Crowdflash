@@ -133,26 +133,41 @@ class CrowdflashClient {
     }
 
     _startCountdown(seconds) {
-        const elOverlay = document.getElementById('countdown-overlay');
-        const elNumber = document.getElementById('countdown-number');
-        if (!elOverlay || !elNumber) return;
+        // Target Main UI Elements
+        const elRippleCenter = document.querySelector('.ripple-center');
+        const elH1 = document.querySelector('h1');
+        const elP = document.querySelector('p');
 
-        elOverlay.classList.add('active');
+        if (!elRippleCenter) return;
+
+        // Store original state
+        if (!this._originalIcon) this._originalIcon = elRippleCenter.innerHTML;
+        if (!this._originalH1) this._originalH1 = elH1 ? elH1.innerHTML : '';
+
+        // Reset text
+        if (elH1) elH1.innerHTML = 'Countdown<br/>gestartet';
+        if (elP) elP.style.opacity = '0.5';
+
         let remaining = seconds;
-        elNumber.textContent = remaining;
 
-        // Clear any existing countdown
+        // Render Number
+        elRippleCenter.innerHTML = `<span style="font-size: 3.5rem; font-weight: 800; font-variant-numeric: tabular-nums;">${remaining}</span>`;
+        elRippleCenter.classList.add('active-countdown');
+
+        // Clear existing
         if (this.countdownInterval) clearInterval(this.countdownInterval);
         if (this.finaleTimeout) clearTimeout(this.finaleTimeout);
 
         this.countdownInterval = setInterval(() => {
             remaining--;
-            elNumber.textContent = remaining;
 
-            // Flash screen/torch briefly on each second
+            // Update Number
+            elRippleCenter.innerHTML = `<span style="font-size: 3.5rem; font-weight: 800; font-variant-numeric: tabular-nums;">${remaining}</span>`;
+
+            // Flash & Vibrate on every second (if > 5)
             if (remaining > 5) {
-                // Soft tick
                 if (navigator.vibrate) navigator.vibrate(50);
+                this.torch.flashOnce(50); // Sync flash
             }
 
             // Finale: Speed up flashing from 5s
@@ -162,13 +177,18 @@ class CrowdflashClient {
 
             if (remaining <= 0) {
                 clearInterval(this.countdownInterval);
-                elNumber.textContent = "GO!";
+                elRippleCenter.innerHTML = `<span style="font-size: 2.5rem; font-weight: 800;">GO!</span>`;
+
+                // Full Flash
                 this.torch.turnOn();
 
-                // Hide overlay after a moment, but keep light on
+                // Restore UI after 3s
                 setTimeout(() => {
-                    elOverlay.classList.remove('active');
-                }, 2000);
+                    elRippleCenter.innerHTML = this._originalIcon;
+                    elRippleCenter.classList.remove('active-countdown');
+                    if (elH1) elH1.innerHTML = this._originalH1;
+                    if (elP) elP.style.opacity = '1';
+                }, 3000);
             }
         }, 1000);
     }
@@ -177,15 +197,18 @@ class CrowdflashClient {
         // Accelerating flash sequence for last 5 seconds
         let delay = 500;
         const flash = async () => {
-            if (!document.getElementById('countdown-overlay').classList.contains('active')) return;
+            // Check if countdown is still active
+            const elRippleCenter = document.querySelector('.ripple-center');
+            if (!elRippleCenter || !elRippleCenter.classList.contains('active-countdown')) return;
 
             await this.torch.flashOnce(50);
+            if (navigator.vibrate) navigator.vibrate(50);
 
-            // Speed up
-            delay = Math.max(50, delay * 0.8);
+            // Speed up logic
+            delay = Math.max(50, delay * 0.85);
 
-            const elNumber = document.getElementById('countdown-number');
-            if (elNumber.textContent !== "GO!") {
+            const text = elRippleCenter.textContent;
+            if (text !== "GO!") {
                 this.finaleTimeout = setTimeout(flash, delay);
             }
         };
