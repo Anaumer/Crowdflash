@@ -9,6 +9,27 @@ const wss = new WebSocket.Server({ server });
 
 // Middleware
 app.use(express.json());
+
+// CORS Configuration
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'https://crowdflash-admin.netlify.app',
+  'https://crowdflash-mobile.netlify.app'
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Auth Configuration ---
