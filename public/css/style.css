@@ -36,14 +36,14 @@ html {
 }
 
 body {
-  height: 100dvh;
+  min-height: 100dvh;
   font-family: 'Spline Sans', sans-serif;
   background-color: var(--bg-dark);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
   overflow-y: auto;
-  position: fixed;
   width: 100%;
 }
 
