@@ -162,6 +162,7 @@
                             continueBtn.innerHTML = '<span class="material-symbols-outlined">arrow_forward</span> Weiter zur Show';
                             continueBtn.onclick = () => { window.location.href = 'live.html'; };
                             footer.appendChild(continueBtn);
+                            continueBtn.scrollIntoView({ behavior: 'smooth' });
                         }
                     }
                 }, 500);
