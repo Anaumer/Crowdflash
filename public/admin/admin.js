@@ -6,6 +6,13 @@
 (function () {
     'use strict';
 
+    // ---- Auth Check ----
+    const token = localStorage.getItem('crowdflash_token');
+    if (!token && window.location.pathname.indexOf('login.html') === -1) {
+        window.location.href = 'login.html';
+        return;
+    }
+
     // ---- State ----
     let ws = null;
     let connected = false;
@@ -38,7 +45,7 @@
             : `${protocol}//${window.location.host}`;
 
         // Ensure URL doesn't end with slash if adding role
-        const wsUrl = baseUrl.replace(/\/$/, '') + '?role=admin';
+        const wsUrl = baseUrl.replace(/\/$/, '') + `?role=admin&token=${token}`;
 
         ws = new WebSocket(wsUrl);
 

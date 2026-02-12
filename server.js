@@ -7,8 +7,30 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Serve static files
+// Middleware
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// --- Auth Configuration ---
+const ADMIN_CREDENTIALS = {
+  email: 'alexander.naumer@aroma.ch',
+  password: 'Cr0wdflash'
+};
+
+// In-memory session store (simple token approach)
+const activeTokens = new Set();
+
+// Login API
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+  if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    activeTokens.add(token);
+    res.json({ success: true, token });
+  } else {
+    res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+});
 
 // --- State ---
 const clients = new Map();   // ws → { id, battery, connectedAt }
@@ -77,8 +99,16 @@ function pushMetricsToAdmins() {
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const role = url.searchParams.get('role');
+  const token = url.searchParams.get('token');
 
   if (role === 'admin') {
+    // Verify token
+    if (!token || !activeTokens.has(token)) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }));
+      ws.close();
+      return;
+    }
+
     admins.add(ws);
     // Send current state
     ws.send(JSON.stringify(getMetrics()));

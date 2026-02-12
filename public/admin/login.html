@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Crowdflash – Admin Login</title>
+    <link rel="stylesheet" href="admin.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <style>
+        .login-page {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-dark);
+            background-image: radial-gradient(circle at 50% 50%, rgba(249, 249, 6, 0.05) 0%, transparent 50%);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 3rem;
+            background: var(--surface-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .login-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .login-logo-dot {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: var(--neon);
+        }
+
+        .login-logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.05em;
+            color: white;
+            margin: 0;
+        }
+
+        .login-field {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .login-label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-hover);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .login-input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            background: var(--primary);
+            color: black;
+            border: none;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            margin-top: 1rem;
+        }
+
+        .btn-login:hover {
+            opacity: 0.9;
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .login-error {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="login-page">
+    <div class="login-card">
+        <div class="login-logo">
+            <div class="login-logo-dot"></div>
+            <h1>CROWD FLASH</h1>
+        </div>
+        <form id="login-form">
+            <div class="login-field">
+                <label class="login-label">Email</label>
+                <input type="email" id="email" class="login-input" required placeholder="alexander.naumer@aroma.ch">
+            </div>
+            <div class="login-field">
+                <label class="login-label">Password</label>
+                <input type="password" id="password" class="login-input" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-login">SIGN IN</button>
+            <div id="login-error" class="login-error">Invalid credentials</div>
+        </form>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+
+            const backendUrl = (window.CROWDFLASH_CONFIG && window.CROWDFLASH_CONFIG.BACKEND_URL)
+                ? window.CROWDFLASH_CONFIG.BACKEND_URL.replace('wss://', 'https://').replace('ws://', 'http://')
+                : '';
+
+            try {
+                const response = await fetch(`${backendUrl}/api/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    localStorage.setItem('crowdflash_token', data.token);
+                    window.location.href = 'index.html';
+                } else {
+                    errorEl.style.display = 'block';
+                }
+            } catch (err) {
+                console.error(err);
+                errorEl.textContent = 'Server connection failed';
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -9,7 +9,12 @@
     <link rel="stylesheet" href="admin.css" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
-    <script src="../config.js"></script>
+    <script src="config.js"></script>
+    <script>
+        if (!localStorage.getItem('crowdflash_token')) {
+            window.location.href = 'login.html';
+        }
+    </script>
 </head>
 
 <body>
@@ -18,7 +23,8 @@
     <aside class="sidebar">
         <div class="sidebar-logo">
             <div class="sidebar-logo-dot"></div>
-            <h1>CROWD FLASH</h1>
+            <h1>CROWD FLASH <small style="font-size: 0.6em; opacity: 0.5; font-weight: 300; margin-left: 0.25rem;">by
+                    aroma</small></h1>
         </div>
 
         <nav class="sidebar-nav">
