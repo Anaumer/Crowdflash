@@ -368,8 +368,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 12rem;
-  height: 12rem;
+  width: 10rem;
+  height: 10rem;
   border-radius: var(--radius-full);
   background: linear-gradient(to bottom, #1e293b, var(--bg-dark));
   border: 4px solid rgba(100, 116, 139, 0.5);
