@@ -117,9 +117,79 @@ class CrowdflashClient {
                 // Server is alive
                 break;
 
+            case 'flash_pulse':
+                this.torch.flashOnce(data.duration || 100);
+                if (this.onCommand) this.onCommand('flash_pulse');
+                break;
+
+            case 'countdown_start':
+                this._startCountdown(data.seconds);
+                if (this.onCommand) this.onCommand('countdown_start');
+                break;
+
             default:
                 break;
         }
+    }
+
+    _startCountdown(seconds) {
+        const elOverlay = document.getElementById('countdown-overlay');
+        const elNumber = document.getElementById('countdown-number');
+        if (!elOverlay || !elNumber) return;
+
+        elOverlay.classList.add('active');
+        let remaining = seconds;
+        elNumber.textContent = remaining;
+
+        // Clear any existing countdown
+        if (this.countdownInterval) clearInterval(this.countdownInterval);
+        if (this.finaleTimeout) clearTimeout(this.finaleTimeout);
+
+        this.countdownInterval = setInterval(() => {
+            remaining--;
+            elNumber.textContent = remaining;
+
+            // Flash screen/torch briefly on each second
+            if (remaining > 5) {
+                // Soft tick
+                if (navigator.vibrate) navigator.vibrate(50);
+            }
+
+            // Finale: Speed up flashing from 5s
+            if (remaining === 5) {
+                this._startCountdownFinale();
+            }
+
+            if (remaining <= 0) {
+                clearInterval(this.countdownInterval);
+                elNumber.textContent = "GO!";
+                this.torch.turnOn();
+
+                // Hide overlay after a moment, but keep light on
+                setTimeout(() => {
+                    elOverlay.classList.remove('active');
+                }, 2000);
+            }
+        }, 1000);
+    }
+
+    _startCountdownFinale() {
+        // Accelerating flash sequence for last 5 seconds
+        let delay = 500;
+        const flash = async () => {
+            if (!document.getElementById('countdown-overlay').classList.contains('active')) return;
+
+            await this.torch.flashOnce(50);
+
+            // Speed up
+            delay = Math.max(50, delay * 0.8);
+
+            const elNumber = document.getElementById('countdown-number');
+            if (elNumber.textContent !== "GO!") {
+                this.finaleTimeout = setTimeout(flash, delay);
+            }
+        };
+        flash();
     }
 
     /**

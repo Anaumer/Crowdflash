@@ -21,6 +21,14 @@
     let tapTimes = [];
     let currentPattern = null;
     let triggerActive = false;
+    // New State
+    let bpmInterval = null;
+    let audioContext = null;
+    let audioSource = null;
+    let audioAnalyser = null;
+    let isAudioPlaying = false;
+    let audioThreshold = 50;
+    let lastBeatTime = 0;
 
     // ---- DOM References ----
     const elActiveUsers = document.getElementById('active-users');
@@ -36,6 +44,16 @@
     const elStrobeDisplay = document.getElementById('strobe-display');
     const elEventLog = document.getElementById('event-log');
     const elVenueMap = document.getElementById('venue-map');
+    // New DOM
+    const elBtnBpmFlash = document.getElementById('btn-bpm-flash');
+    const elAudioFile = document.getElementById('audio-file');
+    const elAudioPlayer = document.getElementById('audio-player');
+    const elAudioThreshold = document.getElementById('audio-threshold');
+    const elThresholdDisplay = document.getElementById('threshold-display');
+    const elBeatIndicator = document.getElementById('beat-indicator');
+    const elCountdownSlider = document.getElementById('countdown-slider');
+    const elCountdownDisplay = document.getElementById('countdown-display');
+    const elBtnStartCountdown = document.getElementById('btn-start-countdown');
 
     // ---- WebSocket Connection ----
     function connectWS() {
@@ -233,9 +251,150 @@
         // Reset all local state
         currentPattern = null;
         document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
-        elStrobeSlider.value = 0;
         elStrobeDisplay.textContent = '0 Hz';
+        stopBpmFlash();
+        stopAudio();
     });
+
+    // ---- Countdown ----
+    elCountdownSlider.addEventListener('input', () => {
+        elCountdownDisplay.textContent = elCountdownSlider.value + 's';
+    });
+
+    elBtnStartCountdown.addEventListener('click', () => {
+        const seconds = parseInt(elCountdownSlider.value);
+        send({ type: 'countdown_start', seconds });
+        addLogEntry({ type: 'CMD', message: `Countdown started (${seconds}s)`, time: new Date().toLocaleTimeString() });
+    });
+
+    // ---- BPM Flash (Auto) ----
+    elBtnBpmFlash.addEventListener('click', () => {
+        if (bpmInterval) {
+            stopBpmFlash();
+        } else {
+            startBpmFlash();
+        }
+    });
+
+    function startBpmFlash() {
+        if (bpmInterval) return;
+        elBtnBpmFlash.classList.add('active');
+        elBtnBpmFlash.style.background = '#ef4444'; // Red to indicate stop
+        elBtnBpmFlash.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle;">stop</span> Stop';
+
+        const bpm = parseInt(elBpmValue.value) || 128;
+        const intervalMs = 60000 / bpm;
+
+        // Send initial flash
+        sendFlashPulse();
+
+        bpmInterval = setInterval(() => {
+            sendFlashPulse();
+        }, intervalMs);
+    }
+
+    function stopBpmFlash() {
+        if (!bpmInterval) return;
+        clearInterval(bpmInterval);
+        bpmInterval = null;
+        elBtnBpmFlash.classList.remove('active');
+        elBtnBpmFlash.style.background = 'var(--primary)';
+        elBtnBpmFlash.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle;">flash_on</span> Auto';
+    }
+
+    function sendFlashPulse() {
+        send({ type: 'flash_pulse', duration: 100 });
+        // Visual feedback
+        elBtnBpmFlash.style.opacity = 0.5;
+        setTimeout(() => elBtnBpmFlash.style.opacity = 1, 50);
+    }
+
+    // Update BPM interval if changed while running
+    elBpmValue.addEventListener('change', () => {
+        if (bpmInterval) {
+            stopBpmFlash();
+            startBpmFlash();
+        }
+    });
+
+    // ---- Audio Sync ----
+    elAudioFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            elAudioPlayer.src = url;
+            elAudioPlayer.style.display = 'block';
+            setupAudioContext();
+        }
+    });
+
+    elAudioThreshold.addEventListener('input', () => {
+        audioThreshold = parseInt(elAudioThreshold.value);
+        elThresholdDisplay.textContent = audioThreshold + '%';
+    });
+
+    function setupAudioContext() {
+        if (audioContext) return;
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioContext();
+        audioSource = audioContext.createMediaElementSource(elAudioPlayer);
+        audioAnalyser = audioContext.createAnalyser();
+        audioAnalyser.fftSize = 256;
+
+        audioSource.connect(audioAnalyser);
+        audioAnalyser.connect(audioContext.destination);
+
+        elAudioPlayer.addEventListener('play', () => {
+            isAudioPlaying = true;
+            audioContext.resume();
+            analyzeAudio();
+        });
+
+        elAudioPlayer.addEventListener('pause', () => isAudioPlaying = false);
+        elAudioPlayer.addEventListener('ended', () => isAudioPlaying = false);
+    }
+
+    function analyzeAudio() {
+        if (!isAudioPlaying) return;
+
+        const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+        audioAnalyser.getByteFrequencyData(dataArray);
+
+        // Simple beat detection: check low frequencies (bass)
+        // Bins 0-10 roughly correspond to bass in a 256 FFT size
+        let bassSum = 0;
+        for (let i = 0; i < 10; i++) {
+            bassSum += dataArray[i];
+        }
+        const bassLevel = bassSum / 10; // 0-255
+
+        // Threshold check (mapped 0-100 to 0-255)
+        const thresholdLevel = (audioThreshold / 100) * 255;
+
+        const now = Date.now();
+        if (bassLevel > thresholdLevel && (now - lastBeatTime > 200)) { // 200ms debounce
+            lastBeatTime = now;
+            sendFlashPulse(); // Send flash command
+
+            // Visual feedback
+            elBeatIndicator.style.background = '#34d399';
+            elBeatIndicator.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                elBeatIndicator.style.background = '#334155';
+                elBeatIndicator.style.transform = 'scale(1)';
+            }, 100);
+        }
+
+        if (isAudioPlaying) requestAnimationFrame(analyzeAudio);
+    }
+
+    function stopAudio() {
+        if (elAudioPlayer) {
+            elAudioPlayer.pause();
+            elAudioPlayer.currentTime = 0;
+        }
+    }
 
     // ---- BPM Controls ----
     document.getElementById('bpm-minus').addEventListener('click', () => {

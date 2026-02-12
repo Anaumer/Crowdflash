@@ -159,8 +159,31 @@
                                     <span class="material-symbols-outlined" style="font-size: 0.875rem;">add</span>
                                 </button>
                             </div>
-                            <button class="btn-tap" id="btn-tap">Tap</button>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                                <button class="btn-tap" id="btn-tap" style="flex: 1;">Tap</button>
+                                <button class="btn-tap" id="btn-bpm-flash"
+                                    style="flex: 1; background: var(--primary); color: white; border: none;">
+                                    <span class="material-symbols-outlined"
+                                        style="font-size: 1rem; vertical-align: middle;">flash_on</span> Auto
+                                </button>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Countdown -->
+                    <div class="control-group">
+                        <label class="control-label">Countdown</label>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Duration</span>
+                            <span id="countdown-display"
+                                style="font-size: 0.75rem; font-family: monospace; color: var(--primary);">10s</span>
+                        </div>
+                        <input class="range-slider" type="range" id="countdown-slider" min="5" max="60" value="10"
+                            step="5">
+                        <button class="btn-emergency" id="btn-start-countdown"
+                            style="margin-top: 0.75rem; width: 100%; background: var(--bg-card); border: 1px solid var(--primary); color: var(--primary);">
+                            START COUNTDOWN
+                        </button>
                     </div>
 
                     <!-- Strobe Rate -->
@@ -187,6 +210,36 @@
                             <button class="pattern-btn" data-pattern="PULSE">Pulse</button>
                             <button class="pattern-btn" data-pattern="LONG">Long</button>
                             <button class="pattern-btn" data-pattern="WAVE">Wave</button>
+                        </div>
+                    </div>
+
+                    <!-- Audio Sync (Full Width) -->
+                    <div class="control-group" style="grid-column: 1 / -1;">
+                        <label class="control-label">Audio Sync (MP3)</label>
+                        <div
+                            style="display: flex; gap: 1rem; align-items: flex-start; background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border);">
+                            <div style="flex: 1;">
+                                <input type="file" id="audio-file" accept="audio/mp3,audio/wav"
+                                    style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; width: 100%;">
+                                <audio id="audio-player" controls
+                                    style="width: 100%; height: 32px; display: none;"></audio>
+                            </div>
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Sensitivity</span>
+                                    <span id="threshold-display"
+                                        style="font-size: 0.75rem; color: var(--text-primary);">50%</span>
+                                </div>
+                                <input class="range-slider" type="range" id="audio-threshold" min="0" max="100"
+                                    value="50">
+                            </div>
+                            <div
+                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem;">
+                                <div id="beat-indicator"
+                                    style="width: 24px; height: 24px; background: #334155; border-radius: 50%; transition: background 0.05s;">
+                                </div>
+                                <span style="font-size: 0.625rem; color: var(--text-muted);">BEAT</span>
+                            </div>
                         </div>
                     </div>
                 </div>

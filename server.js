@@ -203,6 +203,16 @@ function handleAdminMessage(data, ws) {
       log('SYS', `Strobe rate set to ${data.hz} Hz`);
       break;
 
+    case 'countdown_start':
+      broadcastToClients({ type: 'countdown_start', seconds: data.seconds });
+      log('CMD', `Countdown started: ${data.seconds}s`);
+      break;
+
+    case 'flash_pulse':
+      broadcastToClients({ type: 'flash_pulse', duration: data.duration });
+      // Log only occasionally if needed, or omit to avoid spamming logs
+      break;
+
     case 'emergency_stop':
       broadcastToClients({ type: 'emergency_stop' });
       log('ERR', 'EMERGENCY STOP triggered – all devices reset');
