@@ -3,6 +3,13 @@
  * Connects to the WebSocket server and provides real-time control.
  */
 
+// ---- Global Auth & Logout Logic ----
+window.crowdflashLogout = function () {
+    console.warn('Logging out...');
+    localStorage.removeItem('crowdflash_token');
+    window.location.href = 'login.html';
+};
+
 (function () {
     'use strict';
 
@@ -16,6 +23,7 @@
     // ---- State ----
     let ws = null;
     let connected = false;
+    let shouldReconnect = true; // Flag to stop reconnection loop on auth failure
     let activeUsers = 0;
     let userHistory = [];
     let tapTimes = [];
@@ -65,9 +73,12 @@
     const navItems = document.querySelectorAll('.nav-item');
     const panelConsole = document.querySelector('.console-panel');
     const panelDevices = document.querySelector('.devices-panel');
+    const btnLogout = document.getElementById('btn-logout');
 
     // ---- WebSocket Connection ----
     function connectWS() {
+        if (!shouldReconnect) return;
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const baseUrl = (window.CROWDFLASH_CONFIG && window.CROWDFLASH_CONFIG.BACKEND_URL)
             ? window.CROWDFLASH_CONFIG.BACKEND_URL
@@ -76,30 +87,45 @@
         // Ensure URL doesn't end with slash if adding role
         const wsUrl = baseUrl.replace(/\/$/, '') + `?role=admin&token=${token}`;
 
+        console.log('Connecting to WS...');
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
+            console.log('WS Connected');
             connected = true;
-            elSystemDot.classList.remove('offline');
-            elSystemStatus.textContent = 'Venue System: ONLINE';
+            if (elSystemDot) elSystemDot.classList.remove('offline');
+            if (elSystemStatus) elSystemStatus.textContent = 'Venue System: ONLINE';
         };
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+
+                // CRITICAL: Handle Unauthorized (Auth failure)
+                if (data.type === 'error' && data.message === 'Unauthorized') {
+                    console.error('Unauthorized access. Redirecting to login.');
+                    shouldReconnect = false; // STOP Loop
+                    window.crowdflashLogout(); // Force Logout
+                    return;
+                }
+
                 handleMessage(data);
-            } catch (e) { /* ignore */ }
+            } catch (e) { console.error('WS Error:', e); }
         };
 
-        ws.onclose = () => {
+        ws.onclose = (e) => {
+            console.log('WS Closed', e.code, e.reason);
             connected = false;
-            elSystemDot.classList.add('offline');
-            elSystemStatus.textContent = 'Venue System: OFFLINE';
-            // Reconnect
-            setTimeout(connectWS, 2000);
+            if (elSystemDot) elSystemDot.classList.add('offline');
+            if (elSystemStatus) elSystemStatus.textContent = 'Venue System: OFFLINE';
+
+            // Only reconnect if we haven't been explicitly kicked out
+            if (shouldReconnect) {
+                setTimeout(connectWS, 2000);
+            }
         };
 
-        ws.onerror = () => { };
+        ws.onerror = (e) => { console.error('WS Error', e); };
     }
 
     function send(data) {
@@ -120,8 +146,10 @@
             case 'log_history':
                 if (data.entries) {
                     // Clear and populate
-                    elEventLog.innerHTML = '';
-                    data.entries.forEach(e => addLogEntry(e));
+                    if (elEventLog) {
+                        elEventLog.innerHTML = '';
+                        data.entries.forEach(e => addLogEntry(e));
+                    }
                 }
                 break;
             case 'device_list':
@@ -134,6 +162,8 @@
 
     // ---- Metrics ----
     function updateMetrics(data) {
+        if (!elActiveUsers) return;
+
         const prev = activeUsers;
         activeUsers = data.activeUsers || 0;
 
@@ -154,12 +184,12 @@
 
         // Stability
         const stab = data.stability || 0;
-        elStability.textContent = stab.toFixed(1) + '%';
+        if (elStability) elStability.textContent = stab.toFixed(1) + '%';
         updateStabilityBars(stab);
 
         // Battery
         const batt = data.avgBattery || 0;
-        elAvgBattery.textContent = batt + '%';
+        if (elAvgBattery) elAvgBattery.textContent = batt + '%';
 
         // Venue dots
         updateVenueDots(activeUsers);
@@ -182,7 +212,7 @@
     }
 
     function updateSparkline() {
-        if (userHistory.length < 2) return;
+        if (!elSparkline || userHistory.length < 2) return;
         const maxVal = Math.max(...userHistory, 1);
         const points = userHistory.map((v, i) => {
             const x = (i / (userHistory.length - 1)) * 100;
@@ -204,6 +234,7 @@
     }
 
     function updateVenueDots(count) {
+        if (!elVenueMap) return;
         // Remove old dots
         const existingDots = elVenueMap.querySelectorAll('.venue-dot');
         existingDots.forEach(d => d.remove());
@@ -225,6 +256,7 @@
 
     // ---- Event Log ----
     function addLogEntry(entry) {
+        if (!elEventLog) return;
         const div = document.createElement('div');
         div.className = 'log-entry';
         div.innerHTML = `
@@ -244,7 +276,7 @@
     function onTriggerDown(e) {
         e.preventDefault();
         triggerActive = true;
-        elMasterTrigger.classList.add('active');
+        if (elMasterTrigger) elMasterTrigger.classList.add('active');
         send({ type: 'flash_on' });
     }
 
@@ -252,45 +284,56 @@
         e.preventDefault();
         if (!triggerActive) return;
         triggerActive = false;
-        elMasterTrigger.classList.remove('active');
+        if (elMasterTrigger) elMasterTrigger.classList.remove('active');
         send({ type: 'flash_off' });
     }
 
-    elMasterTrigger.addEventListener('mousedown', onTriggerDown);
-    elMasterTrigger.addEventListener('touchstart', onTriggerDown);
+    if (elMasterTrigger) {
+        elMasterTrigger.addEventListener('mousedown', onTriggerDown);
+        elMasterTrigger.addEventListener('touchstart', onTriggerDown);
+    }
     document.addEventListener('mouseup', onTriggerUp);
     document.addEventListener('touchend', onTriggerUp);
 
     // ---- Emergency Stop ----
-    document.getElementById('btn-emergency').addEventListener('click', () => {
-        send({ type: 'emergency_stop' });
-        // Reset all local state
-        currentPattern = null;
-        document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
-        elStrobeDisplay.textContent = '0 Hz';
-        stopBpmFlash();
-        stopAudio();
-    });
+    const btnEmergency = document.getElementById('btn-emergency');
+    if (btnEmergency) {
+        btnEmergency.addEventListener('click', () => {
+            send({ type: 'emergency_stop' });
+            // Reset all local state
+            currentPattern = null;
+            document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+            if (elStrobeDisplay) elStrobeDisplay.textContent = '0 Hz';
+            stopBpmFlash();
+            stopAudio();
+        });
+    }
 
     // ---- Countdown ----
-    elCountdownSlider.addEventListener('input', () => {
-        elCountdownDisplay.textContent = elCountdownSlider.value + 's';
-    });
+    if (elCountdownSlider) {
+        elCountdownSlider.addEventListener('input', () => {
+            elCountdownDisplay.textContent = elCountdownSlider.value + 's';
+        });
+    }
 
-    elBtnStartCountdown.addEventListener('click', () => {
-        const seconds = parseInt(elCountdownSlider.value);
-        send({ type: 'countdown_start', seconds });
-        addLogEntry({ type: 'CMD', message: `Countdown started (${seconds}s)`, time: new Date().toLocaleTimeString() });
-    });
+    if (elBtnStartCountdown) {
+        elBtnStartCountdown.addEventListener('click', () => {
+            const seconds = parseInt(elCountdownSlider.value);
+            send({ type: 'countdown_start', seconds });
+            addLogEntry({ type: 'CMD', message: `Countdown started (${seconds}s)`, time: new Date().toLocaleTimeString() });
+        });
+    }
 
     // ---- BPM Flash (Auto) ----
-    elBtnBpmFlash.addEventListener('click', () => {
-        if (bpmInterval) {
-            stopBpmFlash();
-        } else {
-            startBpmFlash();
-        }
-    });
+    if (elBtnBpmFlash) {
+        elBtnBpmFlash.addEventListener('click', () => {
+            if (bpmInterval) {
+                stopBpmFlash();
+            } else {
+                startBpmFlash();
+            }
+        });
+    }
 
     function startBpmFlash() {
         if (bpmInterval) return;
@@ -321,33 +364,41 @@
     function sendFlashPulse() {
         send({ type: 'flash_pulse', duration: 100 });
         // Visual feedback
-        elBtnBpmFlash.style.opacity = 0.5;
-        setTimeout(() => elBtnBpmFlash.style.opacity = 1, 50);
+        if (elBtnBpmFlash) {
+            elBtnBpmFlash.style.opacity = 0.5;
+            setTimeout(() => elBtnBpmFlash.style.opacity = 1, 50);
+        }
     }
 
     // Update BPM interval if changed while running
-    elBpmValue.addEventListener('change', () => {
-        if (bpmInterval) {
-            stopBpmFlash();
-            startBpmFlash();
-        }
-    });
+    if (elBpmValue) {
+        elBpmValue.addEventListener('change', () => {
+            if (bpmInterval) {
+                stopBpmFlash();
+                startBpmFlash();
+            }
+        });
+    }
 
     // ---- Audio Sync ----
-    elAudioFile.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const url = URL.createObjectURL(file);
-            elAudioPlayer.src = url;
-            elAudioPlayer.style.display = 'block';
-            setupAudioContext();
-        }
-    });
+    if (elAudioFile) {
+        elAudioFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                elAudioPlayer.src = url;
+                elAudioPlayer.style.display = 'block';
+                setupAudioContext();
+            }
+        });
+    }
 
-    elAudioThreshold.addEventListener('input', () => {
-        audioThreshold = parseInt(elAudioThreshold.value);
-        elThresholdDisplay.textContent = audioThreshold + '%';
-    });
+    if (elAudioThreshold) {
+        elAudioThreshold.addEventListener('input', () => {
+            audioThreshold = parseInt(elAudioThreshold.value);
+            elThresholdDisplay.textContent = audioThreshold + '%';
+        });
+    }
 
     function setupAudioContext() {
         if (audioContext) return;
@@ -394,12 +445,14 @@
             sendFlashPulse(); // Send flash command
 
             // Visual feedback
-            elBeatIndicator.style.background = '#34d399';
-            elBeatIndicator.style.transform = 'scale(1.2)';
-            setTimeout(() => {
-                elBeatIndicator.style.background = '#334155';
-                elBeatIndicator.style.transform = 'scale(1)';
-            }, 100);
+            if (elBeatIndicator) {
+                elBeatIndicator.style.background = '#34d399';
+                elBeatIndicator.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    elBeatIndicator.style.background = '#334155';
+                    elBeatIndicator.style.transform = 'scale(1)';
+                }, 100);
+            }
         }
 
         if (isAudioPlaying) requestAnimationFrame(analyzeAudio);
@@ -413,53 +466,66 @@
     }
 
     // ---- BPM Controls ----
-    document.getElementById('bpm-minus').addEventListener('click', () => {
-        const val = Math.max(1, parseInt(elBpmValue.value) - 1);
-        elBpmValue.value = val;
-        send({ type: 'set_bpm', bpm: val });
-    });
+    const btnBpmMinus = document.getElementById('bpm-minus');
+    if (btnBpmMinus) {
+        btnBpmMinus.addEventListener('click', () => {
+            const val = Math.max(1, parseInt(elBpmValue.value) - 1);
+            elBpmValue.value = val;
+            send({ type: 'set_bpm', bpm: val });
+        });
+    }
 
-    document.getElementById('bpm-plus').addEventListener('click', () => {
-        const val = Math.min(300, parseInt(elBpmValue.value) + 1);
-        elBpmValue.value = val;
-        send({ type: 'set_bpm', bpm: val });
-    });
+    const btnBpmPlus = document.getElementById('bpm-plus');
+    if (btnBpmPlus) {
+        btnBpmPlus.addEventListener('click', () => {
+            const val = Math.min(300, parseInt(elBpmValue.value) + 1);
+            elBpmValue.value = val;
+            send({ type: 'set_bpm', bpm: val });
+        });
+    }
 
-    elBpmValue.addEventListener('change', () => {
-        const val = Math.max(1, Math.min(300, parseInt(elBpmValue.value) || 128));
-        elBpmValue.value = val;
-        send({ type: 'set_bpm', bpm: val });
-    });
+    if (elBpmValue) {
+        elBpmValue.addEventListener('change', () => {
+            const val = Math.max(1, Math.min(300, parseInt(elBpmValue.value) || 128));
+            elBpmValue.value = val;
+            send({ type: 'set_bpm', bpm: val });
+        });
+    }
 
     // Tap Tempo
-    document.getElementById('btn-tap').addEventListener('click', () => {
-        const now = Date.now();
-        tapTimes.push(now);
-        // Keep last 8 taps
-        if (tapTimes.length > 8) tapTimes.shift();
-        if (tapTimes.length >= 2) {
-            const intervals = [];
-            for (let i = 1; i < tapTimes.length; i++) {
-                intervals.push(tapTimes[i] - tapTimes[i - 1]);
+    const btnTap = document.getElementById('btn-tap');
+    if (btnTap) {
+        btnTap.addEventListener('click', () => {
+            const now = Date.now();
+            tapTimes.push(now);
+            // Keep last 8 taps
+            if (tapTimes.length > 8) tapTimes.shift();
+            if (tapTimes.length >= 2) {
+                const intervals = [];
+                for (let i = 1; i < tapTimes.length; i++) {
+                    intervals.push(tapTimes[i] - tapTimes[i - 1]);
+                }
+                const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                const bpm = Math.round(60000 / avgInterval);
+                elBpmValue.value = Math.max(1, Math.min(300, bpm));
+                send({ type: 'set_bpm', bpm: parseInt(elBpmValue.value) });
             }
-            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-            const bpm = Math.round(60000 / avgInterval);
-            elBpmValue.value = Math.max(1, Math.min(300, bpm));
-            send({ type: 'set_bpm', bpm: parseInt(elBpmValue.value) });
-        }
-        // Reset after 2s of no tapping
-        clearTimeout(window._tapReset);
-        window._tapReset = setTimeout(() => { tapTimes = []; }, 2000);
-    });
+            // Reset after 2s of no tapping
+            clearTimeout(window._tapReset);
+            window._tapReset = setTimeout(() => { tapTimes = []; }, 2000);
+        });
+    }
 
     // ---- Strobe Rate ----
-    elStrobeSlider.addEventListener('input', () => {
-        const val = parseInt(elStrobeSlider.value);
-        // Map 0-100 to 0-30 Hz
-        const hz = Math.round((val / 100) * 30);
-        elStrobeDisplay.textContent = hz + ' Hz';
-        send({ type: 'set_strobe', hz });
-    });
+    if (elStrobeSlider) {
+        elStrobeSlider.addEventListener('input', () => {
+            const val = parseInt(elStrobeSlider.value);
+            // Map 0-100 to 0-30 Hz
+            const hz = Math.round((val / 100) * 30);
+            elStrobeDisplay.textContent = hz + ' Hz';
+            send({ type: 'set_strobe', hz });
+        });
+    }
 
     // ---- Flash Patterns ----
     document.querySelectorAll('.pattern-btn').forEach(btn => {
@@ -546,7 +612,7 @@
         if (!elDeviceListBody) return;
 
         // Filter
-        const query = (elDeviceSearch.value || '').toLowerCase();
+        const query = (elDeviceSearch && elDeviceSearch.value || '').toLowerCase();
         let displayList = allDevices.filter(d =>
             d.id.toLowerCase().includes(query) ||
             (d.ip && d.ip.includes(query))
@@ -647,19 +713,25 @@
     });
 
     // Generate initial venue dots visual
-    for (let i = 0; i < 6; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'venue-dot';
-        dot.style.top = (15 + Math.random() * 70) + '%';
-        dot.style.left = (10 + Math.random() * 80) + '%';
-        elVenueMap.appendChild(dot);
-        elVenueMap.appendChild(dot);
+    if (elVenueMap) {
+        for (let i = 0; i < 6; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'venue-dot';
+            dot.style.top = (15 + Math.random() * 70) + '%';
+            dot.style.left = (10 + Math.random() * 80) + '%';
+            elVenueMap.appendChild(dot);
+            elVenueMap.appendChild(dot);
+        }
     }
 
-    // Logout
-    const btnLogout = document.getElementById('btn-logout');
+    // Logout UI Binding
     if (btnLogout) {
-        btnLogout.addEventListener('click', logout);
+        // Remove valid clone logic as it might break references, just overwrite onClick
+        btnLogout.onclick = function (e) {
+            e.preventDefault();
+            window.crowdflashLogout();
+        };
+        console.log("Logout button bound");
     }
 
 })();
