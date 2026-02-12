@@ -29,7 +29,7 @@
 <body>
     <div class="flash-overlay" id="flash-overlay"></div>
 
-    <div class="page-full" style="min-height: 100dvh;">
+    <div class="page-full" style="height: 100dvh; overflow: hidden;">
         <!-- Ambient Background -->
         <div class="bg-ambient">
             <div class="orb orb-1"></div>
@@ -49,9 +49,7 @@
                     style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: white;">Crowd
                     Flash</span>
             </div>
-            <button class="icon-btn">
-                <span class="material-symbols-outlined" style="font-size: 1.5rem;">settings</span>
-            </button>
+            <div style="width: 2.5rem; height: 2.5rem;"></div>
         </header>
 
         <!-- Main Content -->
@@ -62,7 +60,7 @@
                 <div class="ripple-ring"></div>
                 <div class="ripple-ring"></div>
                 <div class="ripple-ring"></div>
-                <div class="ripple-center">
+                <div class="ripple-center" id="manual-flash-btn" style="cursor: pointer;">
                     <span class="material-symbols-outlined">bolt</span>
                 </div>
                 <div class="ripple-blur"></div>
@@ -123,6 +121,9 @@
                     <span class="toggle-track"></span>
                 </label>
             </div>
+            <div class="powered-by" style="opacity: 0.3; font-size: 0.5rem; margin-top: 1rem;">
+                v2.4 Live
+            </div>
         </footer>
     </div>
 
@@ -135,6 +136,16 @@
         (async () => {
             await client.torch.requestPermission();
         })();
+
+        // Manual flash control
+        const manualFlashBtn = document.getElementById('manual-flash-btn');
+        const manualToggle = document.getElementById('manual-toggle');
+
+        manualFlashBtn.addEventListener('click', async () => {
+            if (manualToggle.checked) {
+                await client.torch.flashOnce(200);
+            }
+        });
 
         // Connection status UI
         client.onConnectionChange = (connected) => {

@@ -15,7 +15,7 @@
 <body>
     <div class="flash-overlay" id="flash-overlay"></div>
 
-    <div class="page-full" style="min-height: 100dvh;">
+    <div class="page-full" style="height: 100dvh; overflow: hidden;">
         <!-- Background pulse -->
         <div
             style="position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; z-index: 0;">
@@ -31,7 +31,8 @@
                 <span class="material-symbols-outlined" style="font-size: 1.5rem;">arrow_back</span>
             </button>
             <div
-                style="font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-secondary); text-transform: uppercase;">
+                style="font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-secondary); text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem;">
+                <span class="material-symbols-outlined" style="font-size: 1.25rem;">public</span>
                 Systemcheck
             </div>
             <div style="width: 2.5rem; height: 2.5rem;"></div>
@@ -104,8 +105,8 @@
                         <span class="material-symbols-outlined">wifi_tethering</span>
                     </div>
                     <div>
-                        <p class="footer-label">Signalstatus</p>
-                        <p class="footer-value" id="signal-status">Warte auf Signal...</p>
+                        <p class="footer-label">Systemstatus</p>
+                        <p class="footer-value" id="signal-status">Blitz Testen für Systemstatus</p>
                     </div>
                 </div>
                 <div class="footer-divider"></div>
@@ -117,6 +118,9 @@
                         <span class="material-symbols-outlined" style="font-size: 1rem;">battery_charging_full</span>
                     </div>
                 </div>
+            </div>
+            <div class="powered-by" style="opacity: 0.3; font-size: 0.5rem; margin-top: 1rem;">
+                v2.4 Live
             </div>
         </footer>
     </div>
@@ -133,6 +137,8 @@
             const level = await torch.getBatteryLevel();
             if (level !== null) {
                 document.getElementById('battery-level').textContent = level + '%';
+            } else {
+                document.getElementById('battery-level').textContent = 'N/A';
             }
         })();
 
