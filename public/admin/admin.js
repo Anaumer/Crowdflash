@@ -653,6 +653,13 @@
         dot.style.top = (15 + Math.random() * 70) + '%';
         dot.style.left = (10 + Math.random() * 80) + '%';
         elVenueMap.appendChild(dot);
+        elVenueMap.appendChild(dot);
+    }
+
+    // Logout
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', logout);
     }
 
 })();
