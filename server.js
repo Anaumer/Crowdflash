@@ -116,6 +116,35 @@ function pushMetricsToAdmins() {
   broadcastToAdmins(getMetrics());
 }
 
+function pushDeviceListToAdmins() {
+  const deviceList = [];
+  clients.forEach(c => {
+    deviceList.push({
+      id: c.id,
+      battery: c.battery,
+      connectedAt: c.connectedAt,
+      ip: c.ip
+    });
+  });
+  broadcastToAdmins({ type: 'device_list', devices: deviceList });
+}
+
+function disconnectClient(targetId) {
+  let found = false;
+  clients.forEach((info, ws) => {
+    if (info.id === targetId) {
+      ws.close(); // Close connection
+      clients.delete(ws); // Cleanup immediately (though close event will also trigger)
+      found = true;
+      log('CMD', `Admin disconnected device ${targetId}`);
+    }
+  });
+  if (found) {
+    pushMetricsToAdmins();
+    pushDeviceListToAdmins();
+  }
+}
+
 // --- WebSocket ---
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -133,6 +162,8 @@ wss.on('connection', (ws, req) => {
     admins.add(ws);
     // Send current state
     ws.send(JSON.stringify(getMetrics()));
+    pushDeviceListToAdmins(); // Send initial list
+    ws.send(JSON.stringify({ type: 'log_history', entries: eventLog.slice(0, 30) }));
     ws.send(JSON.stringify({ type: 'log_history', entries: eventLog.slice(0, 30) }));
     log('SYS', 'Admin console connected');
 
@@ -151,9 +182,19 @@ wss.on('connection', (ws, req) => {
   } else {
     // Mobile client
     const id = generateId();
-    clients.set(ws, { id, battery: null, connectedAt: Date.now() });
+    // Capture IP
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    clients.set(ws, {
+      id,
+      battery: null,
+      connectedAt: Date.now(),
+      ip: ip
+    });
+
     log('NET', `+1 new connection (${id}) – Total: ${clients.size}`);
     pushMetricsToAdmins();
+    pushDeviceListToAdmins(); // Update list
 
     // Acknowledge connection
     ws.send(JSON.stringify({ type: 'connected', id }));
@@ -172,6 +213,7 @@ wss.on('connection', (ws, req) => {
         log('NET', `Device ${info.id} disconnected – Total: ${clients.size}`);
       }
       pushMetricsToAdmins();
+      pushDeviceListToAdmins(); // Update list
     });
   }
 });
@@ -213,6 +255,10 @@ function handleAdminMessage(data, ws) {
       // Log only occasionally if needed, or omit to avoid spamming logs
       break;
 
+    case 'disconnect_client':
+      disconnectClient(data.id);
+      break;
+
     case 'emergency_stop':
       broadcastToClients({ type: 'emergency_stop' });
       log('ERR', 'EMERGENCY STOP triggered – all devices reset');
@@ -231,6 +277,8 @@ function handleClientMessage(data, ws) {
     case 'battery':
       info.battery = data.level;
       pushMetricsToAdmins();
+      // Optionally throttle device list updates if battery changes too often
+      // pushDeviceListToAdmins(); 
       break;
 
     case 'heartbeat':

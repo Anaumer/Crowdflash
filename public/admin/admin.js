@@ -29,6 +29,10 @@
     let isAudioPlaying = false;
     let audioThreshold = 50;
     let lastBeatTime = 0;
+    // Devices State
+    let allDevices = [];
+    let locationCache = new Map();
+    let currentSort = { field: 'time', dir: 'desc' };
 
     // ---- DOM References ----
     const elActiveUsers = document.getElementById('active-users');
@@ -54,6 +58,13 @@
     const elCountdownSlider = document.getElementById('countdown-slider');
     const elCountdownDisplay = document.getElementById('countdown-display');
     const elBtnStartCountdown = document.getElementById('btn-start-countdown');
+    // Devices DOM
+    const elDeviceListBody = document.getElementById('device-list-body');
+    const elDeviceSearch = document.getElementById('device-search');
+    const elBtnRefreshDevices = document.getElementById('btn-refresh-devices');
+    const navItems = document.querySelectorAll('.nav-item');
+    const panelConsole = document.querySelector('.console-panel');
+    const panelDevices = document.querySelector('.devices-panel');
 
     // ---- WebSocket Connection ----
     function connectWS() {
@@ -112,6 +123,11 @@
                     elEventLog.innerHTML = '';
                     data.entries.forEach(e => addLogEntry(e));
                 }
+                break;
+            case 'device_list':
+                allDevices = data.devices || [];
+                renderDeviceList();
+                fetchLocations();
                 break;
         }
     }
@@ -467,6 +483,168 @@
 
     // ---- Init ----
     connectWS();
+
+    // ---- Navigation ----
+    navItems.forEach((item, index) => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            navItems.forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+
+            // Logic for visual swapping
+            // 0: Dashboard (Metrics + Console + Log)
+            // 1: Live Show (Metrics + Console + Log) -> Same view for now
+            // 2: Devices -> Hide Console, Show Devices
+
+            if (item.innerText.includes('Devices')) {
+                panelConsole.style.display = 'none';
+                panelDevices.style.display = 'flex';
+            } else {
+                panelConsole.style.display = 'flex';
+                panelDevices.style.display = 'none';
+            }
+        });
+    });
+
+    // ---- Device Management ----
+
+    async function fetchLocations() {
+        // Find IPs that we don't have connection info for
+        const uniqueIps = [...new Set(allDevices.map(d => d.ip).filter(ip => ip && !locationCache.has(ip)))];
+
+        // Rate limit: process max 5 at a time
+        const batch = uniqueIps.slice(0, 5);
+
+        for (const ip of batch) {
+            // Check cache again
+            if (locationCache.has(ip)) continue;
+
+            try {
+                // Determine if it's a local address to avoid useless calls
+                if (ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('127.')) {
+                    locationCache.set(ip, 'Local Network');
+                    continue;
+                }
+
+                const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,countryCode`);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    locationCache.set(ip, `${data.city}, ${data.countryCode}`);
+                } else {
+                    locationCache.set(ip, 'Unknown');
+                }
+            } catch (e) {
+                console.warn('Location fetch failed', e);
+            }
+        }
+
+        // Re-render if we fetched anything
+        if (batch.length > 0) renderDeviceList();
+    }
+
+    function renderDeviceList() {
+        if (!elDeviceListBody) return;
+
+        // Filter
+        const query = (elDeviceSearch.value || '').toLowerCase();
+        let displayList = allDevices.filter(d =>
+            d.id.toLowerCase().includes(query) ||
+            (d.ip && d.ip.includes(query))
+        );
+
+        // Sort
+        displayList.sort((a, b) => {
+            let valA, valB;
+            switch (currentSort.field) {
+                case 'time':
+                    valA = a.connectedAt; // Older timestamp = Longer duration
+                    valB = b.connectedAt;
+                    return currentSort.dir === 'desc' ? (valA - valB) : (valB - valA); // Asc means oldest first (longest duration)
+                case 'batt':
+                    valA = a.battery || -1;
+                    valB = b.battery || -1;
+                    return currentSort.dir === 'desc' ? (valB - valA) : (valA - valB);
+                case 'id':
+                default:
+                    valA = a.id;
+                    valB = b.id;
+                    return currentSort.dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+        });
+
+        elDeviceListBody.innerHTML = '';
+        const now = Date.now();
+
+        displayList.forEach(d => {
+            const tr = document.createElement('tr');
+
+            // Duration
+            const diffMin = Math.floor((now - d.connectedAt) / 60000);
+            const diffSec = Math.floor(((now - d.connectedAt) % 60000) / 1000);
+            const duration = `${diffMin}m ${diffSec}s`;
+
+            // Location
+            let loc = 'Checking...';
+            if (d.ip) {
+                loc = locationCache.get(d.ip) || (d.ip.length > 15 ? d.ip.substring(0, 15) + '...' : d.ip);
+            }
+
+            // Battery
+            const battClass = (d.battery === null) ? 'text-muted' : (d.battery < 20 ? 'text-danger' : 'text-success');
+            const battText = (d.battery === null) ? 'N/A' : `${d.battery}%`;
+
+            tr.innerHTML = `
+                <td><span class="mono">${d.id}</span></td>
+                <td>${duration}</td>
+                <td class="${battClass}">${battText}</td>
+                <td>
+                    <div style="line-height: 1.2;">
+                        <div>${d.ip || 'Unknown'}</div>
+                        <div class="location-tag">${loc}</div>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn-disconnect" data-id="${d.id}">Disconnect</button>
+                </td>
+            `;
+            elDeviceListBody.appendChild(tr);
+        });
+
+        // Bind disconnect
+        document.querySelectorAll('.btn-disconnect').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.target.dataset.id;
+                if (confirm(`Disconnect device ${id}?`)) {
+                    send({ type: 'disconnect_client', id });
+                }
+            });
+        });
+    }
+
+    // Search & Refresh listeners
+    if (elDeviceSearch) {
+        elDeviceSearch.addEventListener('input', renderDeviceList);
+    }
+    if (elBtnRefreshDevices) {
+        elBtnRefreshDevices.addEventListener('click', () => {
+            // Request list if needed, usually pushed by server
+            renderDeviceList();
+        });
+    }
+
+    // Header sorting
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+            const field = th.dataset.sort;
+            if (currentSort.field === field) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.dir = 'desc';
+            }
+            renderDeviceList();
+        });
+    });
 
     // Generate initial venue dots visual
     for (let i = 0; i < 6; i++) {

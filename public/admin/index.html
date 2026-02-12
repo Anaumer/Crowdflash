@@ -246,6 +246,36 @@
             </div>
         </section>
 
+        <!-- Center: Devices Panel (Hidden by default) -->
+        <section class="devices-panel" style="display: none;">
+            <div class="panel-header">
+                <h2 class="section-title">Connected Devices</h2>
+                <div class="device-controls">
+                    <input type="text" id="device-search" placeholder="Search ID or IP..." class="search-input">
+                    <button class="btn-secondary small" id="btn-refresh-devices">
+                        <span class="material-symbols-outlined">refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="id">ID <span class="sort-icon"></span></th>
+                            <th data-sort="time">Duration <span class="sort-icon"></span></th>
+                            <th data-sort="batt">Batt <span class="sort-icon"></span></th>
+                            <th>IP / Location</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="device-list-body">
+                        <!-- Rows generated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Right: Venue & Log -->
         <section class="right-panel">
             <!-- Venue Distribution -->
