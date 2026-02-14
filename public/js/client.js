@@ -131,6 +131,14 @@ class CrowdflashClient {
                 if (this.onClientCountChange) this.onClientCountChange(data.count);
                 break;
 
+            case 'start_recording':
+                if (this.onRecordingChange) this.onRecordingChange(true);
+                break;
+
+            case 'stop_recording':
+                if (this.onRecordingChange) this.onRecordingChange(false);
+                break;
+
             default:
                 break;
         }

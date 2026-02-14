@@ -308,6 +308,16 @@ function handleAdminMessage(data, ws) {
       disconnectClient(data.id);
       break;
 
+    case 'start_recording':
+      broadcastToClients({ type: 'start_recording' });
+      log('CMD', '🎬 Recording started on all devices');
+      break;
+
+    case 'stop_recording':
+      broadcastToClients({ type: 'stop_recording' });
+      log('CMD', '⏹️ Recording stopped on all devices');
+      break;
+
     case 'emergency_stop':
       broadcastToClients({ type: 'emergency_stop' });
       log('ERR', 'EMERGENCY STOP triggered – all devices reset');

@@ -324,6 +324,29 @@ window.crowdflashLogout = function () {
         });
     }
 
+    // ---- Crowd Recording ----
+    let isRecordingActive = false;
+    const elBtnToggleRecording = document.getElementById('btn-toggle-recording');
+
+    if (elBtnToggleRecording) {
+        elBtnToggleRecording.addEventListener('click', () => {
+            isRecordingActive = !isRecordingActive;
+            if (isRecordingActive) {
+                send({ type: 'start_recording' });
+                elBtnToggleRecording.style.background = '#ef4444';
+                elBtnToggleRecording.style.borderColor = '#ef4444';
+                elBtnToggleRecording.style.color = 'white';
+                elBtnToggleRecording.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.25rem;">stop_circle</span> STOP RECORDING';
+            } else {
+                send({ type: 'stop_recording' });
+                elBtnToggleRecording.style.background = 'transparent';
+                elBtnToggleRecording.style.borderColor = '#ef4444';
+                elBtnToggleRecording.style.color = '#ef4444';
+                elBtnToggleRecording.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.25rem;">videocam</span> START RECORDING';
+            }
+        });
+    }
+
     // ---- BPM Flash (Auto) ----
     if (elBtnBpmFlash) {
         elBtnBpmFlash.addEventListener('click', () => {
