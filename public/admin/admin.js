@@ -722,7 +722,7 @@ window.crowdflashLogout = function () {
         // Wire up bulk download
         const btnBulkDl = document.getElementById('btn-bulk-download');
         if (btnBulkDl) {
-            btnBulkDl.addEventListener('click', () => bulkDownload(files));
+            btnBulkDl.addEventListener('click', () => bulkDownload());
         }
 
         // Wire up delete all
@@ -779,20 +779,15 @@ window.crowdflashLogout = function () {
         }
     }
 
-    function bulkDownload(files) {
+    function bulkDownload() {
         const backendUrl = getBackendUrl();
-        // Download each file sequentially with small delays
-        files.forEach((f, i) => {
-            setTimeout(() => {
-                const a = document.createElement('a');
-                a.href = backendUrl + f.url;
-                a.download = f.name;
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }, i * 500); // 500ms delay between downloads
-        });
+        const a = document.createElement('a');
+        a.href = backendUrl + '/api/videos/zip';
+        a.download = 'starcatcher_videos.zip';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
     if (elBtnRefreshVideos) {

