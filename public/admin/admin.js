@@ -616,8 +616,72 @@ window.crowdflashLogout = function () {
                 // Small timeout to trigger CSS animation
                 setTimeout(() => targetPanel.classList.add('active'), 10);
             }
+
+            // Auto-load videos when switching to Videos panel
+            if (targetPanelId === 'panel-videos') {
+                fetchVideos();
+            }
         });
     });
+
+    // ---- Video Gallery ----
+    const elVideoGallery = document.getElementById('video-gallery');
+    const elBtnRefreshVideos = document.getElementById('btn-refresh-videos');
+
+    function getBackendUrl() {
+        const cfg = window.CROWDFLASH_CONFIG && window.CROWDFLASH_CONFIG.BACKEND_URL;
+        if (cfg) {
+            return cfg.replace('wss://', 'https://').replace('ws://', 'http://');
+        }
+        return '';
+    }
+
+    async function fetchVideos() {
+        if (!elVideoGallery) return;
+        elVideoGallery.innerHTML = '<div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;">Loading...</div>';
+
+        try {
+            const res = await fetch(getBackendUrl() + '/api/videos');
+            const data = await res.json();
+
+            if (data.success && data.files && data.files.length > 0) {
+                renderVideoGallery(data.files);
+            } else {
+                elVideoGallery.innerHTML = '<div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;"><span class="material-symbols-outlined" style="font-size: 3rem; display: block; margin-bottom: 0.5rem; opacity: 0.3;">videocam_off</span>No videos recorded yet.</div>';
+            }
+        } catch (err) {
+            console.error('Fetch videos error:', err);
+            elVideoGallery.innerHTML = '<div style="color: #ef4444; grid-column: 1/-1; text-align: center; padding: 2rem;">Failed to load videos.</div>';
+        }
+    }
+
+    function renderVideoGallery(files) {
+        if (!elVideoGallery) return;
+        const backendUrl = getBackendUrl();
+
+        elVideoGallery.innerHTML = files.map(f => {
+            const date = new Date(f.time);
+            const dateStr = date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            const timeStr = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+            const videoUrl = backendUrl + f.url;
+
+            return `
+                <div class="video-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
+                    <video src="${videoUrl}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000;" preload="metadata"></video>
+                    <div style="padding: 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${dateStr} – ${timeStr}</div>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                            <a href="${videoUrl}" target="_blank" style="flex: 1; text-align: center; padding: 0.4rem; font-size: 0.7rem; background: var(--surface-light); color: white; border-radius: 4px; text-decoration: none;">▶ Play</a>
+                            <a href="${videoUrl}" download style="flex: 1; text-align: center; padding: 0.4rem; font-size: 0.7rem; background: var(--primary); color: white; border-radius: 4px; text-decoration: none;">⬇ Download</a>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    if (elBtnRefreshVideos) {
+        elBtnRefreshVideos.addEventListener('click', fetchVideos);
+    }
 
     // ---- Device Management ----
 
