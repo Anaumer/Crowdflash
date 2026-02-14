@@ -29,7 +29,7 @@ app.use((req, res, next) => {
   if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Filename');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -94,6 +94,34 @@ app.get('/api/videos', (req, res) => {
 
     res.json({ success: true, files: videoFiles });
   });
+});
+
+// DELETE single or multiple videos
+app.delete('/api/videos', (req, res) => {
+  const { filenames } = req.body; // Array of filenames to delete
+  if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+    return res.status(400).json({ success: false, message: 'No filenames provided' });
+  }
+
+  let deleted = 0;
+  let errors = 0;
+
+  for (const name of filenames) {
+    const safeName = path.basename(name);
+    const filePath = path.join(UPLOADS_DIR, safeName);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        deleted++;
+      }
+    } catch (e) {
+      console.error('Delete error:', safeName, e);
+      errors++;
+    }
+  }
+
+  log('SYS', `Deleted ${deleted} video(s)${errors > 0 ? ` (${errors} errors)` : ''}`);
+  res.json({ success: true, deleted, errors });
 });
 
 // --- State ---

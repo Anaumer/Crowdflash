@@ -21,10 +21,19 @@ class BackgroundRecorder {
         if (this.isRecording) return;
 
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: false
-            });
+            // Try exact rear camera first, fallback to preferred
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
+            } catch (exactErr) {
+                console.warn('Exact rear camera failed, trying preferred:', exactErr);
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
+            }
 
             this.chunks = [];
 

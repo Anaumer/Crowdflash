@@ -627,6 +627,7 @@ window.crowdflashLogout = function () {
     // ---- Video Gallery ----
     const elVideoGallery = document.getElementById('video-gallery');
     const elBtnRefreshVideos = document.getElementById('btn-refresh-videos');
+    let cachedVideoFiles = [];
 
     function getBackendUrl() {
         const cfg = window.CROWDFLASH_CONFIG && window.CROWDFLASH_CONFIG.BACKEND_URL;
@@ -644,8 +645,10 @@ window.crowdflashLogout = function () {
             const res = await fetch(getBackendUrl() + '/api/videos');
             const data = await res.json();
 
-            if (data.success && data.files && data.files.length > 0) {
-                renderVideoGallery(data.files);
+            cachedVideoFiles = data.files || [];
+
+            if (data.success && cachedVideoFiles.length > 0) {
+                renderVideoGallery(cachedVideoFiles);
             } else {
                 elVideoGallery.innerHTML = '<div style="color: var(--text-muted); grid-column: 1/-1; text-align: center; padding: 2rem;"><span class="material-symbols-outlined" style="font-size: 3rem; display: block; margin-bottom: 0.5rem; opacity: 0.3;">videocam_off</span>No videos recorded yet.</div>';
             }
@@ -659,24 +662,137 @@ window.crowdflashLogout = function () {
         if (!elVideoGallery) return;
         const backendUrl = getBackendUrl();
 
-        elVideoGallery.innerHTML = files.map(f => {
+        // Group by date
+        const groups = {};
+        files.forEach(f => {
             const date = new Date(f.time);
-            const dateStr = date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
-            const timeStr = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
-            const videoUrl = backendUrl + f.url;
+            const dateKey = date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(f);
+        });
 
-            return `
-                <div class="video-card" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
-                    <video src="${videoUrl}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000;" preload="metadata"></video>
-                    <div style="padding: 0.75rem;">
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${dateStr} – ${timeStr}</div>
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                            <a href="${videoUrl}" target="_blank" style="flex: 1; text-align: center; padding: 0.4rem; font-size: 0.7rem; background: var(--surface-light); color: white; border-radius: 4px; text-decoration: none;">▶ Play</a>
-                            <a href="${videoUrl}" download style="flex: 1; text-align: center; padding: 0.4rem; font-size: 0.7rem; background: var(--primary); color: white; border-radius: 4px; text-decoration: none;">⬇ Download</a>
-                        </div>
-                    </div>
+        // Bulk actions bar
+        let html = `
+            <div style="grid-column: 1/-1; display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                <button id="btn-bulk-download" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; font-size: 0.75rem; background: var(--primary); color: white; border: none; border-radius: var(--radius); cursor: pointer; font-weight: 600;">
+                    <span class="material-symbols-outlined" style="font-size: 1rem;">download</span>
+                    Download All (${files.length})
+                </button>
+                <button id="btn-delete-all" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; font-size: 0.75rem; background: transparent; color: #ef4444; border: 1px solid #ef4444; border-radius: var(--radius); cursor: pointer; font-weight: 600;">
+                    <span class="material-symbols-outlined" style="font-size: 1rem;">delete_sweep</span>
+                    Delete All
+                </button>
+            </div>`;
+
+        // Render each date group
+        for (const [dateKey, groupFiles] of Object.entries(groups)) {
+            html += `
+                <div style="grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; padding: 0.25rem 0; border-bottom: 1px solid var(--border);">
+                    <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">${dateKey} (${groupFiles.length})</span>
+                    <button class="btn-delete-group" data-date="${dateKey}" style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.65rem; background: transparent; color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 0.85rem;">delete</span>
+                        Delete Group
+                    </button>
                 </div>`;
-        }).join('');
+
+            groupFiles.forEach(f => {
+                const date = new Date(f.time);
+                const timeStr = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const videoUrl = backendUrl + f.url;
+
+                html += `
+                    <div class="video-card" data-filename="${f.name}" data-date="${dateKey}" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
+                        <video src="${videoUrl}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000;" preload="metadata"></video>
+                        <div style="padding: 0.75rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${timeStr}</div>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                                <a href="${videoUrl}" target="_blank" style="flex: 1; text-align: center; padding: 0.4rem; font-size: 0.7rem; background: var(--surface-light); color: white; border-radius: 4px; text-decoration: none;">▶ Play</a>
+                                <a href="${videoUrl}" download style="flex: 1; text-align: center; padding: 0.4rem; font-size: 0.7rem; background: var(--primary); color: white; border-radius: 4px; text-decoration: none;">⬇ Save</a>
+                            </div>
+                            <button class="btn-delete-single" data-filename="${f.name}" style="width: 100%; margin-top: 0.4rem; padding: 0.35rem; font-size: 0.65rem; background: transparent; color: #ef4444; border: 1px solid rgba(239,68,68,0.2); border-radius: 4px; cursor: pointer;">
+                                <span class="material-symbols-outlined" style="font-size: 0.85rem; vertical-align: middle;">delete</span> Delete
+                            </button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        elVideoGallery.innerHTML = html;
+
+        // Wire up bulk download
+        const btnBulkDl = document.getElementById('btn-bulk-download');
+        if (btnBulkDl) {
+            btnBulkDl.addEventListener('click', () => bulkDownload(files));
+        }
+
+        // Wire up delete all
+        const btnDeleteAll = document.getElementById('btn-delete-all');
+        if (btnDeleteAll) {
+            btnDeleteAll.addEventListener('click', () => {
+                if (confirm(`Are you sure you want to delete ALL ${files.length} videos?`)) {
+                    deleteVideos(files.map(f => f.name));
+                }
+            });
+        }
+
+        // Wire up delete group buttons
+        document.querySelectorAll('.btn-delete-group').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const dateKey = btn.dataset.date;
+                const groupFiles = files.filter(f => {
+                    const d = new Date(f.time);
+                    return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }) === dateKey;
+                });
+                if (confirm(`Delete ${groupFiles.length} video(s) from ${dateKey}?`)) {
+                    deleteVideos(groupFiles.map(f => f.name));
+                }
+            });
+        });
+
+        // Wire up individual delete buttons
+        document.querySelectorAll('.btn-delete-single').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filename = btn.dataset.filename;
+                if (confirm(`Delete this video?`)) {
+                    deleteVideos([filename]);
+                }
+            });
+        });
+    }
+
+    async function deleteVideos(filenames) {
+        try {
+            const res = await fetch(getBackendUrl() + '/api/videos', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filenames })
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchVideos(); // Reload gallery
+            } else {
+                alert('Failed to delete videos.');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            alert('Error deleting videos.');
+        }
+    }
+
+    function bulkDownload(files) {
+        const backendUrl = getBackendUrl();
+        // Download each file sequentially with small delays
+        files.forEach((f, i) => {
+            setTimeout(() => {
+                const a = document.createElement('a');
+                a.href = backendUrl + f.url;
+                a.download = f.name;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, i * 500); // 500ms delay between downloads
+        });
     }
 
     if (elBtnRefreshVideos) {
