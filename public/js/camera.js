@@ -76,7 +76,7 @@ class BackgroundRecorder {
             if (rearId) {
                 try {
                     this.stream = await navigator.mediaDevices.getUserMedia({
-                        video: { deviceId: { exact: rearId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                        video: { deviceId: { exact: rearId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
                         audio: false
                     });
                     console.log('✅ Using rear camera via deviceId');
@@ -90,7 +90,7 @@ class BackgroundRecorder {
             if (!this.stream) {
                 try {
                     this.stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                        video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
                         audio: false
                     });
                     console.log('✅ Using rear camera via facingMode exact');
@@ -102,7 +102,7 @@ class BackgroundRecorder {
             // Strategy 3: Try facingMode preferred
             if (!this.stream) {
                 this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
                     audio: false
                 });
                 console.log('⚠️ Using facingMode preferred (may be front camera)');
@@ -114,9 +114,9 @@ class BackgroundRecorder {
                 const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
                     ? 'video/webm;codecs=vp9'
                     : 'video/webm';
-                this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
+                this.mediaRecorder = new MediaRecorder(this.stream, { mimeType, videoBitsPerSecond: 5000000 });
             } catch (e) {
-                this.mediaRecorder = new MediaRecorder(this.stream);
+                this.mediaRecorder = new MediaRecorder(this.stream, { videoBitsPerSecond: 5000000 });
             }
 
             this.mediaRecorder.ondataavailable = (e) => {

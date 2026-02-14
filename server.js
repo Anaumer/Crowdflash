@@ -126,6 +126,8 @@ app.delete('/api/videos', (req, res) => {
 
 // ZIP download all videos
 app.get('/api/videos/zip', (req, res) => {
+  const archiver = require('archiver');
+
   fs.readdir(UPLOADS_DIR, (err, files) => {
     if (err) {
       return res.status(500).json({ success: false, message: 'Cannot read uploads' });
@@ -135,28 +137,23 @@ app.get('/api/videos/zip', (req, res) => {
       return res.status(404).json({ success: false, message: 'No videos to download' });
     }
 
-    const zipName = `starcatcher_videos_${Date.now()}.zip`;
-    const zipPath = path.join(UPLOADS_DIR, zipName);
-    const fileList = videoFiles.map(f => `"${f}"`).join(' ');
+    const zipName = `starcatcher_videos_${new Date().toISOString().slice(0, 10)}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
 
-    const { exec } = require('child_process');
-    exec(`cd "${UPLOADS_DIR}" && zip -j "${zipPath}" ${fileList}`, (error) => {
-      if (error) {
-        console.error('ZIP Error:', error);
-        return res.status(500).json({ success: false, message: 'Failed to create ZIP' });
-      }
-
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
-
-      const readStream = fs.createReadStream(zipPath);
-      readStream.pipe(res);
-
-      readStream.on('end', () => {
-        // Clean up zip file after sending
-        fs.unlink(zipPath, () => { });
-      });
+    const archive = archiver('zip', { zlib: { level: 1 } }); // Fast compression for large videos
+    archive.on('error', (err) => {
+      console.error('Archive Error:', err);
+      res.status(500).end();
     });
+
+    archive.pipe(res);
+
+    videoFiles.forEach(f => {
+      archive.file(path.join(UPLOADS_DIR, f), { name: f });
+    });
+
+    archive.finalize();
   });
 });
 
