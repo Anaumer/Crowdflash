@@ -38,7 +38,7 @@ class CrowdflashClient {
         }
 
         this.ws.onopen = () => {
-            console.log('Connected to Crowdflash server');
+            console.log('Connected to Starcatcher server');
             this.connected = true;
             this.reconnectAttempts = 0;
             this._startHeartbeat();
@@ -125,6 +125,10 @@ class CrowdflashClient {
             case 'countdown_start':
                 this._startCountdown(data.seconds);
                 if (this.onCommand) this.onCommand('countdown_start');
+                break;
+
+            case 'client_count':
+                if (this.onClientCountChange) this.onClientCountChange(data.count);
                 break;
 
             default:

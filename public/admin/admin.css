@@ -514,19 +514,20 @@ body {
     width: 2.5rem;
     height: 2.5rem;
     border-radius: 0.5rem;
-    background: transparent;
-    border: none;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
     color: white;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s;
+    transition: all 0.2s;
     font-family: 'Spline Sans', sans-serif;
 }
 
 .bpm-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .bpm-input {
@@ -565,6 +566,131 @@ body {
 
 .btn-tap:hover {
     border-color: rgba(var(--primary-rgb), 0.5);
+}
+
+/* ---- Layouts ---- */
+.grid-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.grid-console {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.panel-view {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.panel-view.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ---- Cards ---- */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.trigger-card {
+    grid-row: span 2;
+}
+
+/* ---- UI Elements ---- */
+.file-upload-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.file-upload-wrapper input[type="file"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    width: 0.1px;
+    height: 0.1px;
+}
+
+.btn-file {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s;
+}
+
+.btn-file:hover {
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.file-name {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.btn-icon-square {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-icon-square:hover {
+    background: var(--primary);
+    color: var(--bg);
+    border-color: var(--primary);
+}
+
+/* Re-use existing button styles but ensure consistent sizing */
+.btn-primary,
+.btn-secondary,
+.btn-trigger,
+.btn-emergency {
+    font-family: 'Outfit', sans-serif;
 }
 
 /* Strobe Rate */

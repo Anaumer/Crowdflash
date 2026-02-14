@@ -1,11 +1,18 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// Ensure uploads directory exists
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 // Middleware
 app.use(express.json());
@@ -23,7 +30,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Filename');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -51,6 +58,42 @@ app.post('/api/login', (req, res) => {
   } else {
     res.status(401).json({ success: false, message: 'Invalid credentials' });
   }
+});
+
+// --- Video Upload API ---
+app.post('/api/upload', (req, res) => {
+  const filename = req.headers['x-filename'] || `video-${Date.now()}.webm`;
+  const safeFilename = path.basename(filename).replace(/[^a-z0-9.-]/gi, '_');
+  const filePath = path.join(UPLOADS_DIR, safeFilename);
+
+  const writeStream = fs.createWriteStream(filePath);
+
+  req.pipe(writeStream);
+
+  writeStream.on('finish', () => {
+    log('SYS', `Video uploaded: ${safeFilename}`);
+    res.json({ success: true, filename: safeFilename });
+  });
+
+  writeStream.on('error', (err) => {
+    console.error('Upload Error:', err);
+    res.status(500).json({ success: false, message: 'Upload failed' });
+  });
+});
+
+app.get('/api/videos', (req, res) => {
+  fs.readdir(UPLOADS_DIR, (err, files) => {
+    if (err) {
+      return res.status(500).json({ success: false, files: [] });
+    }
+    const videoFiles = files.filter(f => f.endsWith('.webm') || f.endsWith('.mp4')).map(f => ({
+      name: f,
+      url: `/uploads/${f}`,
+      time: fs.statSync(path.join(UPLOADS_DIR, f)).mtime
+    })).sort((a, b) => b.time - a.time);
+
+    res.json({ success: true, files: videoFiles });
+  });
 });
 
 // --- State ---
@@ -101,6 +144,10 @@ function broadcastToClients(data) {
       ws.send(msg);
     }
   });
+}
+
+function broadcastClientCount() {
+  broadcastToClients({ type: 'client_count', count: clients.size });
 }
 
 function broadcastToAdmins(data) {
@@ -198,6 +245,7 @@ wss.on('connection', (ws, req) => {
 
     // Acknowledge connection
     ws.send(JSON.stringify({ type: 'connected', id }));
+    broadcastClientCount();
 
     ws.on('message', (raw) => {
       try {
@@ -214,6 +262,7 @@ wss.on('connection', (ws, req) => {
       }
       pushMetricsToAdmins();
       pushDeviceListToAdmins(); // Update list
+      broadcastClientCount();
     });
   }
 });

@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
-    <title>Live-Sync – Crowd Flash</title>
+    <title>Live-Sync – Starcatcher</title>
     <meta name="description" content="Dein Handy ist bereit für die Show." />
     <link rel="stylesheet" href="css/style.css" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
@@ -22,6 +22,30 @@
 
         body.flash-active #flash-overlay {
             visibility: visible !important;
+        }
+
+        .star-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #2b6cee, 0 0 20px rgba(43, 108, 238, 0.5);
+            pointer-events: none;
+            transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 5;
+            opacity: 0;
+            filter: blur(0.2px);
+        }
+
+        @keyframes orbit {
+            from {
+                transform: rotate(0deg) translateX(var(--orbit-dist)) rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg) translateX(var(--orbit-dist)) rotate(-360deg);
+            }
         }
     </style>
 </head>
@@ -47,8 +71,7 @@
             <div
                 style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.05); backdrop-filter: blur(8px); padding: 0.375rem 1rem; border-radius: var(--radius-full); border: 1px solid var(--border);">
                 <span
-                    style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: white;">Crowd
-                    Flash</span>
+                    style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: white;">Starcatcher</span>
             </div>
             <div style="width: 2.5rem; height: 2.5rem;"></div>
         </header>
@@ -65,6 +88,56 @@
                     <span class="material-symbols-outlined">bolt</span>
                 </div>
                 <div class="ripple-blur"></div>
+            </div>
+
+            <!-- Status Card -->
+            <div class="info-card" id="status-card">
+                <span class="material-symbols-outlined spin">sync</span>
+                <div>
+                    <div class="info-card-title">Waiting for signal...</div>
+                    <div class="info-card-desc">Your device is connected and ready. Keep this screen open.</div>
+                </div>
+            </div>
+
+            <!-- Video Record Button -->
+            <button id="btn-record-mode" class="btn-primary"
+                style="margin-top: 1.5rem; background: var(--surface); border: 1px solid var(--border); box-shadow: none;">
+                <span class="material-symbols-outlined" style="color: #ef4444;">videocam</span>
+                Record Memory
+            </button>
+
+            <!-- RECORD OVERLAY -->
+            <div id="record-overlay"
+                style="position: fixed; inset: 0; background: black; z-index: 10000; display: none; flex-direction: column;">
+                <video id="camera-preview" autoplay playsinline muted
+                    style="width: 100%; height: 100%; object-fit: cover;"></video>
+
+                <!-- Controls -->
+                <div
+                    style="position: absolute; bottom: 2rem; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 1.5rem;">
+                    <div id="record-timer"
+                        style="color: white; font-weight: 700; background: rgba(0,0,0,0.5); padding: 0.25rem 0.75rem; border-radius: 99px; display: none;">
+                        00:00</div>
+
+                    <div style="display: flex; gap: 2rem; align-items: center;">
+                        <button id="btn-close-camera" class="icon-btn"
+                            style="width: 3rem; height: 3rem; background: rgba(255,255,255,0.2);">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+
+                        <button id="btn-capture-action"
+                            style="width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 4px solid white; background: transparent; display: flex; align-items: center; justify-content: center;">
+                            <div id="record-inner"
+                                style="width: 3.5rem; height: 3.5rem; background: #ef4444; border-radius: 50%; transition: all 0.2s;">
+                            </div>
+                        </button>
+
+                        <button class="icon-btn" style="width: 3rem; height: 3rem; opacity: 0; pointer-events: none;">
+                            <!-- Spacer -->
+                        </button>
+                    </div>
+                    <div id="upload-status" style="color: white; font-size: 0.8rem; margin-top: 0.5rem;"></div>
+                </div>
             </div>
 
             <!-- Text -->
@@ -128,8 +201,9 @@
         </footer>
     </div>
 
-    <script src="js/torch.js"></script>
     <script src="js/client.js"></script>
+    <script src="js/torch.js"></script>
+    <script src="js/camera.js"></script>
     <script>
         const client = new CrowdflashClient();
 
@@ -157,8 +231,58 @@
             } else {
                 document.getElementById('badge-connected').style.display = 'none';
                 document.getElementById('badge-disconnected').style.display = '';
+                updateDeviceOrbits(0); // Clear on disconnect
             }
         };
+
+        // Device Orbits Visualization
+        let currentOrbitDots = [];
+        const rippleContainer = document.querySelector('.ripple-container');
+
+        client.onClientCountChange = (count) => {
+            updateDeviceOrbits(count);
+        };
+
+        function updateDeviceOrbits(count) {
+            console.log('Update Orbits: Total Clients =', count);
+            const maxVisible = 30;
+            const targetCount = Math.max(0, Math.min(count - 1, maxVisible));
+
+            // Remove extra dots
+            while (currentOrbitDots.length > targetCount) {
+                const dot = currentOrbitDots.pop();
+                dot.style.opacity = '0';
+                dot.style.transform += ' scale(0)';
+                setTimeout(() => dot.remove(), 1000);
+            }
+
+            // Add missing dots
+            while (currentOrbitDots.length < targetCount) {
+                const dot = document.createElement('div');
+                dot.className = 'star-dot';
+
+                // Random position in a ring
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 75 + Math.random() * 45; // Closer to button (within 120px)
+                const duration = 15 + Math.random() * 25; // Slower, more subtle
+
+                dot.style.left = '50%';
+                dot.style.top = '50%';
+                dot.style.marginLeft = '-3px'; // Center compensating for 6px width
+                dot.style.marginTop = '-3px';
+                dot.style.setProperty('--orbit-dist', `${dist}px`);
+                dot.style.animation = `orbit ${duration}s linear infinite`;
+                dot.style.animationDelay = `-${Math.random() * duration}s`;
+
+                rippleContainer.appendChild(dot);
+                currentOrbitDots.push(dot);
+
+                // Simple fade in
+                requestAnimationFrame(() => {
+                    dot.style.opacity = '1';
+                });
+            }
+        }
 
         // Command feedback (optional visual)
         client.onCommand = (cmd, data) => {

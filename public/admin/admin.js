@@ -1,5 +1,5 @@
 /**
- * Crowdflash – Admin CMS Controller
+ * Starcatcher – Admin CMS Controller
  * Connects to the WebSocket server and provides real-time control.
  */
 
@@ -550,24 +550,48 @@ window.crowdflashLogout = function () {
     // ---- Init ----
     connectWS();
 
-    // ---- Navigation ----
-    navItems.forEach((item, index) => {
+    // ---- File Input UI ----
+    if (elAudioFile) {
+        elAudioFile.addEventListener('change', (e) => {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'Keine Datei ausgewählt';
+            const elFileName = document.getElementById('file-name');
+            if (elFileName) elFileName.textContent = fileName;
+        });
+    }
+
+    // ---- Navigation & Panel Switching ----
+    const pageTitle = document.getElementById('page-title');
+
+    navItems.forEach((item) => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
+
+            // Remove active class from all nav items
             navItems.forEach(n => n.classList.remove('active'));
             item.classList.add('active');
 
-            // Logic for visual swapping
-            // 0: Dashboard (Metrics + Console + Log)
-            // 1: Live Show (Metrics + Console + Log) -> Same view for now
-            // 2: Devices -> Hide Console, Show Devices
+            const text = item.innerText.trim();
+            if (pageTitle) pageTitle.textContent = text;
 
-            if (item.innerText.includes('Devices')) {
-                panelConsole.style.display = 'none';
-                panelDevices.style.display = 'flex';
-            } else {
-                panelConsole.style.display = 'flex';
-                panelDevices.style.display = 'none';
+            // Hide all panels
+            document.querySelectorAll('.panel-view').forEach(p => {
+                p.style.display = 'none';
+                p.classList.remove('active');
+            });
+
+            // Show target panel
+            let targetPanelId = 'panel-overview';
+            if (text.includes('Overview') || text.includes('Dashboard')) targetPanelId = 'panel-overview';
+            else if (text.includes('Live Show') || text.includes('Console')) targetPanelId = 'panel-live';
+            else if (text.includes('Devices')) targetPanelId = 'panel-devices';
+            else if (text.includes('Analytics')) targetPanelId = 'panel-analytics';
+            else if (text.includes('Videos')) targetPanelId = 'panel-videos';
+
+            const targetPanel = document.getElementById(targetPanelId);
+            if (targetPanel) {
+                targetPanel.style.display = 'block';
+                // Small timeout to trigger CSS animation
+                setTimeout(() => targetPanel.classList.add('active'), 10);
             }
         });
     });
