@@ -21,7 +21,8 @@ app.use(express.json());
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'https://crowdflash-admin.netlify.app',
-  'https://crowdflash-mobile.netlify.app'
+  'https://crowdflash-mobile.netlify.app',
+  'https://starcatcher-mobile.netlify.app'
 ];
 
 app.use((req, res, next) => {
